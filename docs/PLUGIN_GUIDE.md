@@ -124,6 +124,76 @@ examples:
 
 ## Implementing Analyzers
 
+### 🎯 Critical Pattern: Universal Line Numbers
+
+**All analyzers MUST return line numbers for composability with CLI tools.**
+
+The framework provides helpers via `BaseAnalyzer` that make this easy:
+
+```python
+from reveal.analyzers.base import BaseAnalyzer
+from reveal.registry import register
+
+@register(['.toml'], name='TOML', icon='⚙️')
+class TOMLAnalyzer(BaseAnalyzer):
+    def __init__(self, lines, **kwargs):
+        super().__init__(lines, **kwargs)  # ✅ Accepts file_path, focus_start, focus_end
+
+    def analyze_structure(self):
+        keys = []
+        for key_name in self.parsed_data.keys():
+            # Use find_definition() helper to locate key in source
+            line_num = self.find_definition(f'{key_name} =')
+
+            keys.append({
+                'name': key_name,
+                'line': line_num if line_num else 1
+            })
+
+        return {'top_level_keys': keys}
+```
+
+**Key Helpers from BaseAnalyzer:**
+
+- `self.find_definition(text)` - Find where text appears in source file
+- `self.format_location(line_num)` - Returns `filename:32` or `L0032`
+- `self.with_location(text, line_num)` - Formats aligned output
+- `self.in_focus_range(line_num)` - Check if line in user-specified range
+
+**Output Format:**
+
+✅ **Correct** (dict with line):
+```python
+{'name': 'my_function', 'line': 42}
+```
+
+❌ **Wrong** (just a string):
+```python
+'my_function'  # No way to find it in the file!
+```
+
+**Why This Matters:**
+
+Reveal's line numbers work with ALL Unix tools:
+```bash
+# Find something
+$ reveal config.yaml --level 1 | grep database
+config.yaml:12  database
+
+# Jump to it
+$ vim config.yaml:12
+
+# Check history
+$ git blame config.yaml -L 12,20
+```
+
+**Reference Implementations:**
+- `reveal/analyzers/json_analyzer.py` - Uses `find_definition()` for keys
+- `reveal/analyzers/yaml_analyzer.py` - Handles comments correctly
+- `reveal/analyzers/toml_analyzer.py` - Separates sections from keys
+- `reveal/analyzers/python_analyzer.py` - Uses AST node.lineno
+- `reveal/analyzers/sql_analyzer.py` - Complex AST + regex approach
+
 ### Basic Analyzer Template
 
 ```python

@@ -56,9 +56,9 @@ levels:
 features: [grep, context, paging, syntax_highlighting]
 ```
 
-**Built-in support:** Python, YAML, JSON, Markdown, C/C++ headers, plain text
+**Built-in support:** Python, YAML, JSON, TOML, Markdown, SQL, plain text
 
-**Coming soon:** Excel (.xlsx), Jupyter notebooks (.ipynb), TypeScript, Go, Rust
+**Coming soon:** Excel (.xlsx), Jupyter notebooks (.ipynb), TypeScript, Go, Rust, Shell scripts
 
 ## 🪜 Hierarchical Navigation
 
@@ -78,6 +78,27 @@ Functions: 12 global functions
    reveal app.py -l 1 -m "Database"  → grep filter at this level
 ```
 
+## 🔗 Composable with Unix Tools
+
+All analyzers return `filename:line` references, making reveal output work seamlessly with standard CLI tools:
+
+```bash
+# Find a function
+$ reveal app.py --level 1 | grep "process_data"
+app.py:42  process_data
+
+# Jump to it in vim
+$ vim app.py:42
+
+# Or check git history
+$ git blame app.py -L 42,50
+
+# Use in scripts
+$ reveal config.yaml --level 1 | awk '{print $1}' | xargs -I {} vim {}
+```
+
+**Universal pattern:** Every structure element shows its source location, making reveal a perfect bridge between exploration and editing.
+
 ## 🤖 Why This Matters for AI
 
 **Before reveal:**
@@ -87,17 +108,20 @@ Functions: 12 global functions
 
 **With reveal:**
 - Start with structure (50 tokens)
-- Identify target function
+- Identify target function at `app.py:42`
 - Read only that function (20 tokens)
+- Jump directly: `reveal app.py:42 --level 3`
 - 10x token efficiency
 
 ## 🎨 Features
 
 - **Progressive Disclosure** - 4 levels: metadata → structure → preview → full
-- **Plugin System** - YAML configs map extensions to analyzers
+- **Universal Line Numbers** - All analyzers show `filename:line` format for seamless tool integration
+- **Composable Output** - Works with vim, grep, git blame, sed, and all CLI tools
+- **Plugin System** - Decorator-based registration, auto-discovery via entry points
 - **Breadcrumb Navigation** - Always show available levels
 - **Rich Filtering** - Regex grep with context at any level
-- **Composable** - Build complex analyzers from simple components
+- **Directory Support** - Recursive analysis with progressive disclosure
 - **AI-Optimized** - Designed for agentic workflows
 - **Extensible** - Add new file types without touching core
 
@@ -132,9 +156,13 @@ reveal/
 ## 🚀 Roadmap
 
 - [x] Core framework with 4-level hierarchy
-- [x] Python, YAML, JSON, Markdown analyzers
+- [x] Python, YAML, JSON, TOML, Markdown, SQL analyzers
 - [x] Decorator-based plugin system with entry points
-- [ ] Breadcrumb navigation
+- [x] Universal line number support (composable with CLI tools)
+- [x] Directory analysis with recursive traversal
+- [x] Breadcrumb navigation
+- [ ] Plugin-specific arguments (--table, --section, etc.)
+- [ ] Shell script support (.sh, .bash)
 - [ ] C/C++ header support (.h, .hpp)
 - [ ] Excel support (.xlsx)
 - [ ] Jupyter notebook support (.ipynb)

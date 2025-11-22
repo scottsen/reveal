@@ -88,9 +88,17 @@ def format_structure(summary: FileSummary, structure: Dict[str, Any], grep_patte
         return lines
 
     if summary.type == 'yaml':
-        lines.append("Top-level keys:")
-        for i, key in enumerate(structure.get('top_level_keys', []), 1):
-            lines.append(f"  {format_line_number(i, len(structure.get('top_level_keys', [])))}  {key}")
+        top_level_keys = structure.get('top_level_keys', [])
+        if top_level_keys:
+            lines.append(f"Top-level keys ({len(top_level_keys)}):")
+            for key in top_level_keys:
+                if isinstance(key, dict):
+                    # New format with line numbers
+                    loc = f"{summary.path}:{key['line']}" if summary.path else f"L{key['line']:04d}"
+                    lines.append(f"  {loc:30}  {key['name']}")
+                else:
+                    # Backward compat (old format without line numbers)
+                    lines.append(f"  {key}")
 
         lines.append("")
         lines.append(f"Nesting depth:   {structure.get('nesting_depth', 0)}")
@@ -98,9 +106,17 @@ def format_structure(summary: FileSummary, structure: Dict[str, Any], grep_patte
         lines.append(f"Aliases:         {structure.get('alias_count', 0)}")
 
     elif summary.type == 'json':
-        lines.append("Top-level keys:")
-        for i, key in enumerate(structure.get('top_level_keys', []), 1):
-            lines.append(f"  {format_line_number(i, len(structure.get('top_level_keys', [])))}  {key}")
+        top_level_keys = structure.get('top_level_keys', [])
+        if top_level_keys:
+            lines.append(f"Top-level keys ({len(top_level_keys)}):")
+            for key in top_level_keys:
+                if isinstance(key, dict):
+                    # New format with line numbers
+                    loc = f"{summary.path}:{key['line']}" if summary.path else f"L{key['line']:04d}"
+                    lines.append(f"  {loc:30}  {key['name']}")
+                else:
+                    # Backward compat (old format without line numbers)
+                    lines.append(f"  {key}")
 
         lines.append("")
         lines.append(f"Object count:    {structure.get('object_count', 0)}")
@@ -113,6 +129,36 @@ def format_structure(summary: FileSummary, structure: Dict[str, Any], grep_patte
             lines.append("Value types:")
             for vtype, count in value_types.items():
                 lines.append(f"  {vtype}: {count}")
+
+    elif summary.type == 'toml':
+        top_level_keys = structure.get('top_level_keys', [])
+        sections = structure.get('sections', [])
+
+        if top_level_keys:
+            lines.append(f"Top-level keys ({len(top_level_keys)}):")
+            for key in top_level_keys:
+                if isinstance(key, dict):
+                    # New format with line numbers
+                    loc = f"{summary.path}:{key['line']}" if summary.path else f"L{key['line']:04d}"
+                    lines.append(f"  {loc:30}  {key['name']}")
+                else:
+                    # Backward compat
+                    lines.append(f"  {key}")
+            lines.append("")
+
+        if sections:
+            lines.append(f"Sections ({len(sections)}):")
+            for section in sections:
+                if isinstance(section, dict):
+                    loc = f"{summary.path}:{section['line']}" if summary.path else f"L{section['line']:04d}"
+                    subsections = section.get('subsections', 0)
+                    subsection_info = f" ({subsections} subsections)" if subsections > 0 else ""
+                    lines.append(f"  {loc:30}  [{section['name']}]{subsection_info}")
+                else:
+                    lines.append(f"  {section}")
+            lines.append("")
+
+        lines.append(f"Nesting depth:   {structure.get('nesting_depth', 0)}")
 
     elif summary.type == 'markdown':
         headings = structure.get('headings', [])

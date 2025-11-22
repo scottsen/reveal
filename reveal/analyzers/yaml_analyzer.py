@@ -48,10 +48,21 @@ class YAMLAnalyzer(BaseAnalyzer):
                 'alias_count': 0
             }
 
-        # Get top-level keys
+        # Get top-level keys with line numbers
         top_level_keys = []
         if isinstance(self.parsed_data, dict):
-            top_level_keys = list(self.parsed_data.keys())
+            for key in self.parsed_data.keys():
+                # Find where this key is defined in the source file
+                # Look for "key:" pattern (YAML format)
+                line_num = self.find_definition(f'{key}:', case_sensitive=True)
+                if line_num is None:
+                    # Fallback: try the key without colon
+                    line_num = self.find_definition(key, case_sensitive=True)
+
+                top_level_keys.append({
+                    'name': key,
+                    'line': line_num if line_num is not None else 1
+                })
 
         # Calculate nesting depth
         nesting_depth = self._calculate_depth(self.parsed_data)

@@ -3,6 +3,7 @@
 from .base import BaseAnalyzer
 from .yaml_analyzer import YAMLAnalyzer
 from .json_analyzer import JSONAnalyzer
+from .toml_analyzer import TOMLAnalyzer
 from .markdown_analyzer import MarkdownAnalyzer
 from .python_analyzer import PythonAnalyzer
 from .sql_analyzer import SQLAnalyzer
@@ -12,6 +13,7 @@ __all__ = [
     'BaseAnalyzer',
     'YAMLAnalyzer',
     'JSONAnalyzer',
+    'TOMLAnalyzer',
     'MarkdownAnalyzer',
     'PythonAnalyzer',
     'SQLAnalyzer',

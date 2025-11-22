@@ -33,10 +33,21 @@ class JSONAnalyzer(BaseAnalyzer):
                 'value_types': {}
             }
 
-        # Get top-level keys
+        # Get top-level keys with line numbers
         top_level_keys = []
         if isinstance(self.parsed_data, dict):
-            top_level_keys = list(self.parsed_data.keys())
+            for key in self.parsed_data.keys():
+                # Find where this key is defined in the source file
+                # Look for the key as a quoted string (JSON format)
+                line_num = self.find_definition(f'"{key}"', case_sensitive=True)
+                if line_num is None:
+                    # Fallback: try without quotes (for malformed JSON)
+                    line_num = self.find_definition(key, case_sensitive=True)
+
+                top_level_keys.append({
+                    'name': key,
+                    'line': line_num if line_num is not None else 1
+                })
 
         # Count objects and arrays
         object_count, array_count = self._count_structures(self.parsed_data)
