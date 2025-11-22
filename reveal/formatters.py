@@ -20,17 +20,37 @@ def format_line_number(line_num: int, max_num: int = 9999) -> str:
 
 
 def format_breadcrumb(level: int, is_end: bool = False) -> str:
-    """Format breadcrumb suggestion."""
+    """
+    Format breadcrumb suggestions - progressive revelation hints.
+
+    Shows users what other reveal options are available to explore.
+    """
     if is_end:
         return "→ (end) ← Back to --level 2"
 
-    suggestions = {
-        0: "→ Try --level 1 for structure",
-        1: "→ Try --level 2 for preview",
-        2: "→ Try --level 3 for full content"
+    breadcrumbs = {
+        0: [
+            "→ Next: --level 1 (structure)",
+            "  Options: --grep PATTERN (filter), --help (all options)"
+        ],
+        1: [
+            "→ Next: --level 2 (preview with context)",
+            "  Options: --grep PATTERN (filter content), --level 0 (metadata)",
+            "  Tip: Structure shows line references - use those with --level 3"
+        ],
+        2: [
+            "→ Next: --level 3 (full content)",
+            "  Options: --grep PATTERN --context N (show ±N lines around matches)",
+            "  Tip: Use line numbers from this output with other tools"
+        ],
+        3: [
+            "← Back: --level 2 (preview), --level 1 (structure), --level 0 (metadata)",
+            "  Options: --grep PATTERN --context N (filter while viewing all)"
+        ]
     }
 
-    return suggestions.get(level, "")
+    lines = breadcrumbs.get(level, [])
+    return "\n".join(lines) if lines else ""
 
 
 def format_metadata(summary: FileSummary) -> List[str]:
@@ -120,14 +140,26 @@ def format_structure(summary: FileSummary, structure: Dict[str, Any], grep_patte
             lines.append("")
             lines.append(f"Classes ({len(classes)}):")
             for cls in classes:
-                lines.append(f"  {cls}")
+                if isinstance(cls, dict):
+                    # New format with line numbers
+                    loc = f"{summary.path}:{cls['line']}" if summary.path else f"L{cls['line']:04d}"
+                    lines.append(f"  {loc:30}  {cls['name']}")
+                else:
+                    # Backward compat (old format without line numbers)
+                    lines.append(f"  {cls}")
 
         functions = structure.get('functions', [])
         if functions:
             lines.append("")
             lines.append(f"Functions ({len(functions)}):")
             for func in functions:
-                lines.append(f"  {func}")
+                if isinstance(func, dict):
+                    # New format with line numbers
+                    loc = f"{summary.path}:{func['line']}" if summary.path else f"L{func['line']:04d}"
+                    lines.append(f"  {loc:30}  {func['name']}")
+                else:
+                    # Backward compat
+                    lines.append(f"  {func}")
 
         assignments = structure.get('assignments', [])
         if assignments:

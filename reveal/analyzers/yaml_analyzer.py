@@ -16,8 +16,8 @@ except ImportError:
 class YAMLAnalyzer(BaseAnalyzer):
     """Analyzer for YAML configuration files"""
 
-    def __init__(self, lines: List[str]):
-        super().__init__(lines)
+    def __init__(self, lines: List[str], **kwargs):
+        super().__init__(lines, **kwargs)
         self.parse_error = None
         self.parsed_data = None
 

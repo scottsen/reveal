@@ -10,8 +10,8 @@ from ..registry import register
 class JSONAnalyzer(BaseAnalyzer):
     """Analyzer for JSON data files"""
 
-    def __init__(self, lines: List[str]):
-        super().__init__(lines)
+    def __init__(self, lines: List[str], **kwargs):
+        super().__init__(lines, **kwargs)
         self.parse_error = None
         self.parsed_data = None
 

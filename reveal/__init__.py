@@ -6,6 +6,9 @@ __author__ = "Progressive Reveal Team"
 # Export registry functions for plugin development
 from .registry import register, get_analyzer, list_analyzers, list_extensions
 
+# Import analyzers to trigger @register decorators
+from . import analyzers  # noqa: F401
+
 __all__ = [
     'register',
     'get_analyzer',

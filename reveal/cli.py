@@ -10,9 +10,50 @@ from .analyzers import TextAnalyzer  # Fallback only
 from .formatters import format_metadata, format_structure, format_preview, format_full_content
 from .grep_filter import apply_grep_filter
 from .registry import get_analyzer as get_analyzer_for_file
+from .detectors import detect_file_type
+import os
 
 
-def get_analyzer(file_path: str, lines: List[str]):
+def parse_file_location(file_arg: str) -> tuple[str, Optional[int], Optional[int]]:
+    """
+    Parse file argument that may include line numbers.
+
+    Supports:
+      - file.sql           → (file.sql, None, None)
+      - file.sql:32        → (file.sql, 32, 32)
+      - file.sql:10-50     → (file.sql, 10, 50)
+
+    Args:
+        file_arg: File argument from command line
+
+    Returns:
+        Tuple of (file_path, start_line, end_line)
+    """
+    if ':' not in file_arg:
+        return file_arg, None, None
+
+    # Split on last colon (handles paths like C:\Users\file.txt on Windows)
+    file_path, line_spec = file_arg.rsplit(':', 1)
+
+    try:
+        if '-' in line_spec:
+            # Range: file.sql:10-50
+            start_str, end_str = line_spec.split('-', 1)
+            start_line = int(start_str) if start_str else 1
+            end_line = int(end_str) if end_str else None
+            return file_path, start_line, end_line
+        else:
+            # Single line: file.sql:32
+            line_num = int(line_spec)
+            return file_path, line_num, line_num
+    except ValueError:
+        # Not a valid line number, treat whole thing as file path
+        return file_arg, None, None
+
+
+def get_analyzer(file_path: str, lines: List[str],
+                 focus_start: Optional[int] = None,
+                 focus_end: Optional[int] = None):
     """
     Get appropriate analyzer for file.
 
@@ -22,6 +63,8 @@ def get_analyzer(file_path: str, lines: List[str]):
     Args:
         file_path: Path to the file (used to determine extension)
         lines: File content lines
+        focus_start: Optional start line for focused analysis
+        focus_end: Optional end line for focused analysis
 
     Returns:
         Analyzer instance
@@ -33,7 +76,12 @@ def get_analyzer(file_path: str, lines: List[str]):
     if not analyzer_class:
         analyzer_class = TextAnalyzer
 
-    return analyzer_class(lines)
+    return analyzer_class(
+        lines,
+        file_path=file_path,
+        focus_start=focus_start,
+        focus_end=focus_end
+    )
 
 
 def reveal_level_0(summary: FileSummary) -> List[str]:
@@ -44,13 +92,27 @@ def reveal_level_0(summary: FileSummary) -> List[str]:
 def reveal_level_1(
     summary: FileSummary,
     grep_pattern: Optional[str] = None,
-    case_sensitive: bool = False
+    case_sensitive: bool = False,
+    focus_start: Optional[int] = None,
+    focus_end: Optional[int] = None
 ) -> List[str]:
     """Generate Level 1 (structure) output."""
-    analyzer = get_analyzer(str(summary.path), summary.lines)
+    analyzer = get_analyzer(
+        str(summary.path),
+        summary.lines,
+        focus_start=focus_start,
+        focus_end=focus_end
+    )
     structure = analyzer.analyze_structure()
 
-    lines = format_structure(summary, structure, grep_pattern)
+    # Check if analyzer provides custom formatting
+    custom_lines = analyzer.format_structure(structure)
+    if custom_lines is not None:
+        # Use analyzer's custom formatter (pluggable!)
+        lines = custom_lines
+    else:
+        # Fall back to generic formatter
+        lines = format_structure(summary, structure, grep_pattern)
 
     # Apply grep filter if specified
     if grep_pattern:
@@ -64,10 +126,17 @@ def reveal_level_2(
     summary: FileSummary,
     grep_pattern: Optional[str] = None,
     case_sensitive: bool = False,
-    context: int = 0
+    context: int = 0,
+    focus_start: Optional[int] = None,
+    focus_end: Optional[int] = None
 ) -> List[str]:
     """Generate Level 2 (preview) output."""
-    analyzer = get_analyzer(str(summary.path), summary.lines)
+    analyzer = get_analyzer(
+        str(summary.path),
+        summary.lines,
+        focus_start=focus_start,
+        focus_end=focus_end
+    )
     preview = analyzer.generate_preview()
 
     # Apply grep filter if specified
@@ -108,6 +177,134 @@ def reveal_level_3(
     return format_full_content(summary, page_lines, grep_pattern, is_end=False)
 
 
+def analyze_directory_level_0(dir_path: Path) -> List[str]:
+    """Analyze directory metadata (level 0)."""
+    lines = []
+    lines.append("=== DIRECTORY METADATA (Level 0) ===")
+    lines.append("")
+
+    # Count files and gather stats
+    all_files = []
+    total_size = 0
+    file_types = {}
+
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+            file_path = Path(root) / file
+            try:
+                size = file_path.stat().st_size
+                total_size += size
+                file_type = detect_file_type(file_path)
+                file_types[file_type] = file_types.get(file_type, 0) + 1
+                all_files.append((file_path, size, file_type))
+            except:
+                pass
+
+    lines.append(f"Path:            {dir_path.name}/")
+    lines.append(f"Total files:     {len(all_files):,}")
+    lines.append(f"Total size:      {total_size:,} bytes ({total_size / 1024:.1f} KB)")
+    lines.append("")
+
+    if file_types:
+        lines.append("File types:")
+        for ftype, count in sorted(file_types.items(), key=lambda x: x[1], reverse=True):
+            lines.append(f"  {ftype:15} {count:4} files")
+
+    lines.append("")
+    lines.append("→ Next: --level 1 (file listing)")
+    lines.append("  Tip: Use --grep to filter by filename or type")
+
+    return lines
+
+
+def analyze_directory_level_1(dir_path: Path, grep_pattern: Optional[str] = None) -> List[str]:
+    """Analyze directory structure (level 1) - list files with brief info."""
+    lines = []
+    lines.append("=== DIRECTORY STRUCTURE (Level 1) ===")
+    lines.append("")
+
+    # Gather files
+    files_by_type = {}
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+            file_path = Path(root) / file
+            try:
+                file_type = detect_file_type(file_path)
+                rel_path = file_path.relative_to(dir_path)
+                size = file_path.stat().st_size
+
+                # Apply grep filter if specified
+                if grep_pattern and grep_pattern.lower() not in str(rel_path).lower():
+                    continue
+
+                if file_type not in files_by_type:
+                    files_by_type[file_type] = []
+                files_by_type[file_type].append((rel_path, size))
+            except:
+                pass
+
+    # Format output by type
+    for file_type in sorted(files_by_type.keys()):
+        file_list = sorted(files_by_type[file_type])
+        lines.append(f"{file_type.title()} files ({len(file_list)}):")
+        for rel_path, size in file_list[:20]:  # Limit to 20 per type
+            size_kb = size / 1024
+            lines.append(f"  {str(rel_path):50} {size_kb:8.1f} KB")
+        if len(file_list) > 20:
+            lines.append(f"  ... and {len(file_list) - 20} more")
+        lines.append("")
+
+    lines.append("→ Next: --level 2 (detailed summaries)")
+    lines.append("  Tip: Use 'reveal <filename>' to analyze individual files")
+
+    return lines
+
+
+def analyze_directory_level_2(dir_path: Path, grep_pattern: Optional[str] = None) -> List[str]:
+    """Analyze directory with file summaries (level 2)."""
+    lines = []
+    lines.append("=== DIRECTORY DETAILS (Level 2) ===")
+    lines.append("")
+
+    files_analyzed = 0
+    for root, dirs, files in os.walk(dir_path):
+        for file in sorted(files)[:30]:  # Limit to 30 files
+            file_path = Path(root) / file
+            try:
+                rel_path = file_path.relative_to(dir_path)
+
+                # Apply grep filter
+                if grep_pattern and grep_pattern.lower() not in str(rel_path).lower():
+                    continue
+
+                # Quick analysis
+                file_type = detect_file_type(file_path)
+                size = file_path.stat().st_size
+
+                # Try to get line count for text files
+                line_count = "?"
+                try:
+                    if size < 1024 * 1024:  # Only for files < 1MB
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            line_count = str(sum(1 for _ in f))
+                except:
+                    pass
+
+                lines.append(f"📄 {rel_path}")
+                lines.append(f"   Type: {file_type}, Size: {size / 1024:.1f} KB, Lines: {line_count}")
+                lines.append("")
+                files_analyzed += 1
+            except:
+                pass
+
+    if files_analyzed == 0:
+        lines.append("No files found matching criteria.")
+
+    lines.append("→ Use 'reveal <specific-file>' for detailed analysis")
+
+    return lines
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -125,10 +322,13 @@ Examples:
   reveal myfile.json --level 1
   reveal myfile.py --level 2 --grep "class"
   reveal myfile.md --level 3 --page-size 50
+  reveal schema.sql:32              # Jump to line 32
+  reveal schema.sql:10-50           # Show lines 10-50
+  reveal code.py:125 --level 1      # What's at line 125?
         """
     )
 
-    parser.add_argument('file', type=str, help='File to reveal')
+    parser.add_argument('file', type=str, help='File to reveal (supports file:line or file:start-end)')
     parser.add_argument('--level', type=int, default=0, choices=[0, 1, 2, 3],
                         help='Revelation level (default: 0)')
     parser.add_argument('--grep', '-m', type=str, dest='grep_pattern',
@@ -145,9 +345,32 @@ Examples:
     args = parser.parse_args()
 
     try:
-        # Create file path
-        file_path = Path(args.file).resolve()
+        # Parse file location (may include :line or :start-end)
+        file_str, focus_start, focus_end = parse_file_location(args.file)
 
+        # Create file path
+        file_path = Path(file_str).resolve()
+
+        # Check if it's a directory
+        if file_path.is_dir():
+            # Handle directory analysis
+            if args.level == 0:
+                output = analyze_directory_level_0(file_path)
+            elif args.level == 1:
+                output = analyze_directory_level_1(file_path, args.grep_pattern)
+            elif args.level == 2:
+                output = analyze_directory_level_2(file_path, args.grep_pattern)
+            else:  # level 3
+                print("Error: Level 3 (full content) not supported for directories", file=sys.stderr)
+                print("Hint: Use --level 2 for detailed file summaries", file=sys.stderr)
+                sys.exit(1)
+
+            # Print directory output
+            for line in output:
+                print(line)
+            return
+
+        # Regular file handling
         # Create file summary
         summary = create_file_summary(file_path, force=args.force)
 
@@ -166,7 +389,9 @@ Examples:
             output = reveal_level_1(
                 summary,
                 grep_pattern=args.grep_pattern,
-                case_sensitive=args.grep_case_sensitive
+                case_sensitive=args.grep_case_sensitive,
+                focus_start=focus_start,
+                focus_end=focus_end
             )
         elif args.level == 2:
             if summary.parse_error and summary.is_binary:
@@ -176,7 +401,9 @@ Examples:
                 summary,
                 grep_pattern=args.grep_pattern,
                 case_sensitive=args.grep_case_sensitive,
-                context=args.context
+                context=args.context,
+                focus_start=focus_start,
+                focus_end=focus_end
             )
         elif args.level == 3:
             if summary.parse_error and summary.is_binary:

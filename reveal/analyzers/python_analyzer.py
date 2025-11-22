@@ -10,8 +10,8 @@ from ..registry import register
 class PythonAnalyzer(BaseAnalyzer):
     """Analyzer for Python source files with AST-based analysis"""
 
-    def __init__(self, lines: List[str]):
-        super().__init__(lines)
+    def __init__(self, lines: List[str], **kwargs):
+        super().__init__(lines, **kwargs)
         self.parse_error = None
         self.tree = None
 
@@ -49,13 +49,13 @@ class PythonAnalyzer(BaseAnalyzer):
         # Only top-level elements
         for node in self.tree.body:
             if isinstance(node, ast.ClassDef):
-                classes.append(node.name)
+                classes.append({'name': node.name, 'line': node.lineno})
             elif isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
-                functions.append(node.name)
+                functions.append({'name': node.name, 'line': node.lineno})
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        assignments.append(target.id)
+                        assignments.append({'name': target.id, 'line': node.lineno})
 
         return {
             'imports': imports,
