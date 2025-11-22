@@ -12,7 +12,7 @@
 
 **What:** CLI tool for progressive file disclosure (explore files in stages instead of reading everything)
 **Why:** Save tokens - read structure first (50 tokens), then only the parts you need
-**Install:** `pip install git+https://github.com/scottsen/reveal.git`
+**Install:** `pip install reveal-cli`
 **Use:** `reveal file.py -l 1` (structure) → `reveal file.py -l 2` (preview) → targeted reading
 **Supports:** Python, GDScript, YAML, JSON, TOML, Markdown, SQL, C headers, plain text
 
@@ -20,12 +20,17 @@
 
 ## 🚀 Installation (Copy-Paste Ready)
 
-**Option 1: Direct install from GitHub (recommended)**
+**Recommended: Install from PyPI**
+```bash
+pip install reveal-cli
+```
+
+**Alternative: Install from GitHub (latest development version)**
 ```bash
 pip install git+https://github.com/scottsen/reveal.git
 ```
 
-**Option 2: From source (for development)**
+**For development:**
 ```bash
 git clone https://github.com/scottsen/reveal.git
 cd reveal
@@ -410,7 +415,7 @@ Make `reveal` the standard way for AI agents and developers to progressively exp
 
 ```bash
 # Installation
-pip install git+https://github.com/scottsen/reveal.git
+pip install reveal-cli
 
 # Basic usage
 reveal file.py              # Level 0: metadata
