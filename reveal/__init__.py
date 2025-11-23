@@ -10,7 +10,7 @@ from .base import FileAnalyzer, register, get_analyzer
 from .treesitter import TreeSitterAnalyzer
 
 # Import all built-in analyzers to register them
-from .analyzers_new import *
+from .analyzers import *
 
 __all__ = [
     'FileAnalyzer',

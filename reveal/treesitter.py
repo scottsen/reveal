@@ -248,8 +248,35 @@ class TreeSitterAnalyzer(FileAnalyzer):
         return self._get_node_name(node)
 
     def _get_signature(self, node) -> str:
-        """Get function signature (simplified)."""
-        # Just return first line for now
+        """Get function signature (parameters and return type only)."""
+        # Look for parameters node to extract just signature part
+        params_text = ''
+        return_type = ''
+
+        for child in node.children:
+            if child.type in ('parameters', 'parameter_list', 'formal_parameters'):
+                params_text = self._get_node_text(child)
+            elif child.type in ('return_type', 'type'):
+                return_type = ' -> ' + self._get_node_text(child).strip(': ')
+
+        if params_text:
+            return params_text + return_type
+
+        # Fallback: try to extract from first line
         text = self._get_node_text(node)
-        first_line = text.split('\n')[0]
-        return first_line.strip()
+        first_line = text.split('\n')[0].strip()
+
+        # Remove common prefixes (def, func, fn, function, etc.)
+        for prefix in ['def ', 'func ', 'fn ', 'function ', 'async def ', 'pub fn ', 'fn ', 'async fn ']:
+            if first_line.startswith(prefix):
+                first_line = first_line[len(prefix):]
+                break
+
+        # Extract just the signature part (name + params + return)
+        # Remove the name to leave just params + return type
+        if '(' in first_line:
+            name_end = first_line.index('(')
+            signature = first_line[name_end:].rstrip(':').strip()
+            return signature
+
+        return first_line

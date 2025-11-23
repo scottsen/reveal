@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reveal-cli"
-version = "0.1.0"
-description = "Progressive file disclosure for agentic AI - explore files hierarchically with plugin-based analyzers"
+version = "0.2.0"
+description = "Semantic code exploration with progressive disclosure - explore directories, files, and code elements with smart defaults"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -63,7 +63,7 @@ Discussions = "https://github.com/scottsen/reveal/discussions"
 Changelog = "https://github.com/scottsen/reveal/releases"
 
 [project.scripts]
-reveal = "reveal.new_cli:main"
+reveal = "reveal.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

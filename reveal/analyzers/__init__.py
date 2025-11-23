@@ -1,39 +1,23 @@
-"""Analyzers for different file types."""
+"""Built-in analyzers for reveal.
 
-from .base import BaseAnalyzer
-from .yaml_analyzer import YAMLAnalyzer
-from .json_analyzer import JSONAnalyzer
-from .toml_analyzer import TOMLAnalyzer
-from .markdown_analyzer import MarkdownAnalyzer
-from .python_analyzer import PythonAnalyzer
-from .sql_analyzer import SQLAnalyzer
-from .text_analyzer import TextAnalyzer
-from .gdscript_analyzer import GDScriptAnalyzer
+This package contains reference implementations showing how easy it is
+to add new file type support.
 
-# Tree-sitter based analyzers (optional dependency)
-try:
-    from .treesitter_base import TreeSitterAnalyzer
-    from .rust_analyzer import RustAnalyzer
-    from .csharp_analyzer import CSharpAnalyzer
-    from .go_analyzer import GoAnalyzer
-    from .javascript_analyzer import JavaScriptAnalyzer
-    from .php_analyzer import PHPAnalyzer
-    from .bash_analyzer import BashAnalyzer
-    TREESITTER_ANALYZERS = [
-        'TreeSitterAnalyzer', 'RustAnalyzer', 'CSharpAnalyzer', 'GoAnalyzer',
-        'JavaScriptAnalyzer', 'PHPAnalyzer', 'BashAnalyzer'
-    ]
-except ImportError:
-    TREESITTER_ANALYZERS = []
+Each analyzer is typically 10-20 lines of code!
+"""
+
+# Import all analyzers to register them
+from .python import PythonAnalyzer
+from .rust import RustAnalyzer
+from .go import GoAnalyzer
+from .markdown import MarkdownAnalyzer
+from .yaml_json import YamlAnalyzer, JsonAnalyzer
 
 __all__ = [
-    'BaseAnalyzer',
-    'YAMLAnalyzer',
-    'JSONAnalyzer',
-    'TOMLAnalyzer',
-    'MarkdownAnalyzer',
     'PythonAnalyzer',
-    'SQLAnalyzer',
-    'TextAnalyzer',
-    'GDScriptAnalyzer',
-] + TREESITTER_ANALYZERS
+    'RustAnalyzer',
+    'GoAnalyzer',
+    'MarkdownAnalyzer',
+    'YamlAnalyzer',
+    'JsonAnalyzer',
+]
