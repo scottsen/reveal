@@ -11,15 +11,20 @@ This analyzer demonstrates several important plugin patterns:
 This serves as a template for complex analyzers that need robust parsing.
 """
 
+from __future__ import annotations
 import re
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from .base import BaseAnalyzer
 from ..registry import register
 
-# Optional dependency - gracefully handle if not installed
+# Type-only imports (for type hints when sqlglot not installed)
+if TYPE_CHECKING:
+    import sqlglot.expressions as exp
+
+# Optional runtime dependency - gracefully handle if not installed
 try:
     import sqlglot
-    import sqlglot.expressions as exp
+    import sqlglot.expressions as exp  # Also needed at runtime for isinstance checks
     SQLGLOT_AVAILABLE = True
 except ImportError:
     SQLGLOT_AVAILABLE = False
