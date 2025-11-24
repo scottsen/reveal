@@ -1,6 +1,7 @@
 """Clean, simple CLI for reveal."""
 
 import sys
+import os
 import argparse
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,21 @@ from .tree_view import show_directory_tree
 
 
 def main():
+    """Main CLI entry point."""
+    # Fix Windows console encoding for emoji/unicode support
+    if sys.platform == 'win32':
+        # Set environment variable for subprocess compatibility
+        os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+        # Reconfigure stdout/stderr to use UTF-8 with error handling
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
+    _main_impl()
+
+
+def _main_impl():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         description='Reveal: Explore code semantically',
