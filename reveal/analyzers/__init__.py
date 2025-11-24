@@ -17,6 +17,7 @@ from .jupyter_analyzer import JupyterAnalyzer
 from .javascript import JavaScriptAnalyzer
 from .typescript import TypeScriptAnalyzer
 from .bash import BashAnalyzer
+from .nginx import NginxAnalyzer
 
 __all__ = [
     'PythonAnalyzer',
@@ -30,4 +31,5 @@ __all__ = [
     'JavaScriptAnalyzer',
     'TypeScriptAnalyzer',
     'BashAnalyzer',
+    'NginxAnalyzer',
 ]

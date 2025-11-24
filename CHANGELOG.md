@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Nginx configuration analyzer** (.conf) - Web server config analysis
+  - Extracts server blocks with ports and server names
+  - Identifies location blocks with routing targets (proxy_pass, static roots)
+  - Detects upstream blocks for load balancing
+  - Captures header comments with deployment status
+  - Line-accurate navigation to config sections
+  - Supports HTTP→HTTPS redirect patterns
+  - Cross-platform compatible
+
 ## [0.5.0] - 2025-11-23
 
 ### Added
