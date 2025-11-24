@@ -28,7 +28,8 @@ class TestCLIFlags(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0)
         self.assertIn("reveal", result.stdout)
-        self.assertIn("0.4.0", result.stdout)
+        # Check for semantic version pattern (e.g., 0.4.1, 0.5.0)
+        self.assertRegex(result.stdout, r"reveal \d+\.\d+\.\d+")
 
     def test_version_short_form(self):
         """Should work with python -m reveal.main --version."""

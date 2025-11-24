@@ -14,6 +14,9 @@ from .markdown import MarkdownAnalyzer
 from .yaml_json import YamlAnalyzer, JsonAnalyzer
 from .gdscript import GDScriptAnalyzer
 from .jupyter_analyzer import JupyterAnalyzer
+from .javascript import JavaScriptAnalyzer
+from .typescript import TypeScriptAnalyzer
+from .bash import BashAnalyzer
 
 __all__ = [
     'PythonAnalyzer',
@@ -24,4 +27,7 @@ __all__ = [
     'JsonAnalyzer',
     'GDScriptAnalyzer',
     'JupyterAnalyzer',
+    'JavaScriptAnalyzer',
+    'TypeScriptAnalyzer',
+    'BashAnalyzer',
 ]

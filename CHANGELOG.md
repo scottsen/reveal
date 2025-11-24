@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-23
+
+### Added
+- **JavaScript analyzer** (.js) - Full ES6+ support via tree-sitter
+  - Extracts function declarations, arrow functions, classes
+  - Supports import/export statements
+  - Handles async functions and object methods
+  - Cross-platform compatible (Windows/Linux/macOS)
+
+- **TypeScript analyzer** (.ts, .tsx) - Full TypeScript support via tree-sitter
+  - Extracts functions with type annotations
+  - Supports class definitions and interfaces
+  - React/TSX component support (.tsx files)
+  - Type definitions and return types
+  - Cross-platform compatible (Windows/Linux/macOS)
+
+- **Bash/Shell script analyzer** (.sh, .bash) - DevOps script support via tree-sitter
+  - Extracts function definitions (both `function name()` and `name()` syntax)
+  - Cross-platform analysis (parses bash syntax on any OS)
+  - Does NOT execute scripts, only analyzes syntax
+  - Works with WSL, Git Bash, and native Unix shells
+  - Custom `_get_function_name()` implementation for bash 'word' node types
+
+- **12 comprehensive tests** in `test_new_analyzers.py`:
+  - JavaScript: functions, classes, imports, UTF-8 handling
+  - TypeScript: typed functions, classes, interfaces, TSX/React components
+  - Bash: function extraction, complex scripts, cross-platform compatibility
+  - Cross-platform UTF-8 validation for all three analyzers
+
+### Changed
+- **File type count: 10 → 15** supported file types
+  - JavaScript (.js)
+  - TypeScript (.ts, .tsx) - 2 extensions
+  - Bash (.sh, .bash) - 2 extensions
+
+- **Updated analyzers/__init__.py** to register new analyzers
+- **Fixed test_main_cli.py** version assertion to use regex pattern instead of hardcoded version
+
+### Technical Details
+
+**JavaScript Support:**
+- Tree-sitter language: `javascript`
+- Node types: function_declaration, class_declaration, import_statement
+- Handles modern ES6+ syntax (arrow functions, classes, modules)
+
+**TypeScript Support:**
+- Tree-sitter language: `typescript`
+- Supports both .ts and .tsx (React) files
+- Extracts type annotations and interfaces
+- Handles generic types and complex TypeScript features
+
+**Bash Support:**
+- Tree-sitter language: `bash`
+- Custom implementation: Bash uses `word` for function names, not `identifier`
+- Overrides `_get_function_name()` to handle bash-specific AST structure
+- Supports both `function deploy() {}` and `deploy() {}` syntaxes
+
+**Cross-Platform Strategy:**
+- JavaScript/TypeScript: Universal web languages, native cross-platform support
+- Bash: Analyzes syntax only (doesn't execute), works on Windows via WSL/Git Bash
+- All analyzers tested on UTF-8 content with emoji and multi-byte characters
+
+**Real-World Validation:**
+- Tested on SDMS platform codebase
+- JavaScript: Extracted classes from pack-builder.js files
+- Bash: Extracted 5+ functions from deploy-container.sh
+- All UTF-8 characters (emoji, special symbols) handled correctly
+
+### Windows Compatibility
+All new analyzers are fully Windows-compatible:
+- **JavaScript/TypeScript:** Native cross-platform support
+- **Bash:** Syntax analysis works on Windows (common in Git Bash, WSL, Docker workflows)
+- No execution required, only parsing
+
+**Future Windows Support:**
+- PowerShell (.ps1) - Not yet available in tree-sitter-languages
+- Batch files (.bat, .cmd) - Not yet available in tree-sitter-languages
+
 ## [0.4.1] - 2025-11-23
 
 ### Fixed
