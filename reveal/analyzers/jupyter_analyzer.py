@@ -1,31 +1,29 @@
 """Jupyter Notebook (.ipynb) analyzer."""
 
 import json
-from typing import Dict, Any, List
-from .base import BaseAnalyzer
-from ..registry import register
+from typing import Dict, Any, List, Optional
+from ..base import FileAnalyzer, register
 
 
-@register(['.ipynb'], name='Jupyter Notebook', icon='📓')
-class JupyterAnalyzer(BaseAnalyzer):
+@register('.ipynb', name='Jupyter', icon='📓')
+class JupyterAnalyzer(FileAnalyzer):
     """Analyzer for Jupyter Notebook files"""
 
-    def __init__(self, lines: List[str], **kwargs):
-        super().__init__(lines, **kwargs)
+    def __init__(self, path: str):
+        super().__init__(path)
         self.parse_error = None
         self.notebook_data = None
         self.cells = []
         self.metadata = {}
 
         try:
-            content = '\n'.join(lines)
-            self.notebook_data = json.loads(content)
+            self.notebook_data = json.loads(self.content)
             self.cells = self.notebook_data.get('cells', [])
             self.metadata = self.notebook_data.get('metadata', {})
         except Exception as e:
             self.parse_error = str(e)
 
-    def analyze_structure(self) -> Dict[str, Any]:
+    def get_structure(self) -> Dict[str, Any]:
         """Analyze Jupyter notebook structure."""
         if self.parse_error:
             return {
@@ -76,24 +74,30 @@ class JupyterAnalyzer(BaseAnalyzer):
             execution_count = cell.get('execution_count', None)
             outputs_count = len(cell.get('outputs', []))
 
+            # Create a descriptive name for the cell
+            if cell_type == 'markdown':
+                name = first_line if first_line else f"Markdown cell #{idx + 1}"
+            elif cell_type == 'code':
+                exec_info = f"[{execution_count}]" if execution_count else "[not executed]"
+                name = f"Code {exec_info}: {first_line}" if first_line else f"Code cell #{idx + 1}"
+            else:
+                name = f"{cell_type} cell #{idx + 1}"
+
             cell_summaries.append({
-                'index': idx,
                 'line': cell_line,
+                'name': name,
                 'type': cell_type,
-                'first_line': first_line,
                 'execution_count': execution_count,
                 'outputs_count': outputs_count,
-                'source_lines': len(source) if isinstance(source, list) else 1
             })
 
-        return {
-            'total_cells': len(self.cells),
-            'cell_counts': cell_counts,
-            'kernel': kernel_name,
-            'language': language,
-            'nbformat': self.notebook_data.get('nbformat', 'unknown'),
-            'cells': cell_summaries
-        }
+        # Return only the cells list for display
+        # The structure format expects dict[str, List[Dict]]
+        result = {}
+        if cell_summaries:
+            result['cells'] = cell_summaries
+
+        return result
 
     def _find_cell_line(self, cell_index: int) -> int:
         """
