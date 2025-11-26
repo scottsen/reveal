@@ -143,12 +143,13 @@ That's it! Your file type now works with reveal.
 
 ## 🚀 Features
 
-- ✅ **Hierarchical outline mode** - `--outline` shows code structure as a tree (NEW in v0.9.0!)
+- ✅ **URI adapters** - Explore ANY resource via URIs: `env://`, with more coming soon! (NEW in v0.11.0!)
+- ✅ **Hierarchical outline mode** - `--outline` shows code structure as a tree (v0.9.0)
 - ✅ **Smart defaults** - No flags needed for 99% of use cases
 - ✅ **Directory trees** - See what's in a folder
 - ✅ **Structure extraction** - Imports, functions, classes, signals (GDScript)
 - ✅ **Element extraction** - Get specific function/class
-- ✅ **God function detection** - `--god` flag finds high-complexity code (NEW in v0.9.0!)
+- ✅ **God function detection** - `--god` flag finds high-complexity code (v0.9.0)
 - ✅ **18 file types built-in** - Python, Rust, Go, JavaScript, TypeScript, GDScript, Bash, Jupyter, Markdown, JSON, YAML, TOML, Nginx, Dockerfile, and more
 - ✅ **Shebang detection** - Extensionless scripts work automatically (detects `#!/usr/bin/env python3`, `#!/bin/bash`)
 - ✅ **50+ languages available** - Via optional tree-sitter (JS, TS, C#, Java, PHP, etc.)
@@ -256,6 +257,57 @@ The `--stdin` flag enables composability with any tool that outputs file paths:
 - `ls` - Simple file lists
 - `grep -l` - Files matching patterns
 - Custom scripts - Dynamic file selection
+
+### 🌐 URI Adapters - Explore ANY Resource! (NEW in v0.11!)
+
+reveal isn't just for files anymore. Use URIs to explore any structured resource:
+
+```bash
+# Environment variables
+$ reveal env://
+Environment Variables (82)
+
+System (9):
+  HOME                           /home/user
+  PATH                           /usr/local/bin:/usr/bin
+  SHELL                          /bin/bash
+  ...
+
+Python (2):
+  PYTHONPATH                     /app:/app/lib
+  VIRTUAL_ENV                    /app/venv
+
+# Get specific variable
+$ reveal env://DATABASE_URL
+Environment Variable: DATABASE_URL
+Category: Application
+Value: postgresql://localhost/mydb
+Length: 29 characters
+
+# JSON output for scripting
+$ reveal env:// --format=json | jq '.categories.Python'
+[
+  {
+    "name": "PYTHONPATH",
+    "value": "/app:/app/lib",
+    "sensitive": false,
+    "length": 13
+  }
+]
+
+# Find sensitive variables
+$ reveal env:// | grep "(sensitive)"
+  API_KEY                        *** (sensitive)
+  DATABASE_PASSWORD              *** (sensitive)
+```
+
+**Why use URI adapters?**
+- **Consistent interface** - Same reveal UX for any resource
+- **Progressive disclosure** - Overview → specific element
+- **Multiple formats** - text, json, grep (just like files)
+- **Composable** - Works with jq, grep, and other tools
+
+**Coming soon:** `https://` (REST APIs), `git://` (repositories), `docker://` (containers), and more!
 
 ## 🎯 Use Cases
 

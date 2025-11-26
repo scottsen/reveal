@@ -88,6 +88,105 @@ def main():
     _main_impl()
 
 
+def handle_uri(uri: str, element: Optional[str], args) -> None:
+    """Handle URI-based resources (env://, https://, etc.).
+
+    Args:
+        uri: Full URI (e.g., env://, env://PATH)
+        element: Optional element to extract
+        args: Parsed command line arguments
+    """
+    # Parse URI
+    if '://' not in uri:
+        print(f"Error: Invalid URI format: {uri}", file=sys.stderr)
+        sys.exit(1)
+
+    scheme, resource = uri.split('://', 1)
+
+    # Route to appropriate adapter
+    if scheme == 'env':
+        from .adapters.env import EnvAdapter
+        adapter = EnvAdapter()
+
+        if element or resource:
+            # Get specific variable (element takes precedence)
+            var_name = element if element else resource
+            result = adapter.get_element(var_name, show_secrets=False)
+
+            if result is None:
+                print(f"Error: Environment variable '{var_name}' not found", file=sys.stderr)
+                sys.exit(1)
+
+            render_env_variable(result, args.format)
+        else:
+            # Get all variables
+            result = adapter.get_structure(show_secrets=False)
+            render_env_structure(result, args.format)
+
+    else:
+        print(f"Error: Unsupported URI scheme: {scheme}://", file=sys.stderr)
+        print(f"Supported schemes: env://", file=sys.stderr)
+        sys.exit(1)
+
+
+def render_env_structure(data: Dict[str, Any], output_format: str) -> None:
+    """Render environment variables structure.
+
+    Args:
+        data: Environment data from adapter
+        output_format: Output format (text, json, grep)
+    """
+    if output_format == 'json':
+        import json
+        print(json.dumps(data, indent=2))
+        return
+
+    # Text format
+    print(f"Environment Variables ({data['total_count']})")
+    print()
+
+    for category, variables in data['categories'].items():
+        if not variables:
+            continue
+
+        print(f"{category} ({len(variables)}):")
+        for var in variables:
+            sensitive_marker = " (sensitive)" if var['sensitive'] else ""
+            if output_format == 'grep':
+                # grep format: env://VAR_NAME:value
+                print(f"env://{var['name']}:{var['value']}")
+            else:
+                # text format
+                print(f"  {var['name']:<30s} {var['value']}{sensitive_marker}")
+        print()
+
+
+def render_env_variable(data: Dict[str, Any], output_format: str) -> None:
+    """Render single environment variable.
+
+    Args:
+        data: Variable data from adapter
+        output_format: Output format (text, json, grep)
+    """
+    if output_format == 'json':
+        import json
+        print(json.dumps(data, indent=2))
+        return
+
+    if output_format == 'grep':
+        print(f"env://{data['name']}:{data['value']}")
+        return
+
+    # Text format
+    print(f"Environment Variable: {data['name']}")
+    print(f"Category: {data['category']}")
+    print(f"Value: {data['value']}")
+    if data['sensitive']:
+        print(f"⚠️  Sensitive: This variable appears to contain sensitive data")
+        print(f"    Use --show-secrets to display actual value")
+    print(f"Length: {data['length']} characters")
+
+
 def _build_help_epilog() -> str:
     """Build dynamic help with conditional jq examples."""
     import shutil
@@ -144,9 +243,16 @@ Examples:
   reveal doc.md --code                        # Extract all code blocks
   reveal doc.md --code --language python      # Only Python code blocks
 
+  # URI adapters - explore ANY resource! (NEW in v0.11!)
+  reveal env://                               # Show all environment variables
+  reveal env://PATH                           # Get specific variable
+  reveal env://DATABASE_URL                   # Check database config
+  reveal env:// --format=json | jq '.categories.Python'  # Filter Python vars
+
 File-type specific features:
   • Markdown: --links, --code (extract links/code blocks with filtering)
   • Code files: --god, --outline (find complexity, show hierarchical structure)
+  • URI adapters: env:// (environment variables) - more coming soon!
 
 Perfect filename:line format - works with vim, git, grep, sed, awk!
 Metrics: All code files show [X lines, depth:Y] for complexity analysis
@@ -244,7 +350,12 @@ def _main_impl():
         parser.print_help()
         sys.exit(1)
 
-    # Check if path exists
+    # Check if this is a URI (scheme://)
+    if '://' in args.path:
+        handle_uri(args.path, args.element, args)
+        sys.exit(0)
+
+    # Regular file/directory path
     path = Path(args.path)
     if not path.exists():
         print(f"Error: {args.path} not found", file=sys.stderr)

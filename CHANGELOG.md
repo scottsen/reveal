@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2025-11-26
+
+### 🌐 Major Feature: URI Adapters
+
+**NEW: Explore ANY resource, not just files!**
+
+reveal now supports URI-based exploration of structured resources. This release includes the first adapter (`env://`) with more coming soon.
+
+```bash
+# Environment variables
+reveal env://                    # Show all environment variables
+reveal env://DATABASE_URL        # Get specific variable
+reveal env:// --format=json      # JSON output for scripting
+```
+
+**Why URI adapters?**
+- **Consistent interface** - Same reveal UX for any resource
+- **Progressive disclosure** - Overview → specific element → details
+- **Multiple formats** - text, json, grep (just like files)
+- **Composable** - Works with jq, grep, and other Unix tools
+
+### Added
+- **URI adapter architecture** - Extensible system for exploring non-file resources
+  - Base adapter interface in `reveal/adapters/base.py`
+  - Adapter registry and URI routing in `main.py`
+  - Consistent output formats (text, json, grep)
+
+- **`env://` adapter** - Environment variable exploration
+  - `reveal env://` - List all environment variables, grouped by category
+  - `reveal env://VAR_NAME` - Get specific variable details
+  - Automatic sensitive data detection (passwords, tokens, keys)
+  - Redacts sensitive values by default (show with `--show-secrets`)
+  - Categories: System, Python, Node, Application, Custom
+  - Example: `reveal env:// --format=json | jq '.categories.Python'`
+
+- **Enhanced help text** - URI adapter examples with jq integration
+  - Shows env:// usage patterns
+  - Demonstrates JSON filtering with jq
+  - Clear documentation of adapter system
+
+### Changed
+- **README updated** - New "URI Adapters" section with examples
+- **Features list** - URI adapters now listed as key feature
+
+### Coming Soon
+- `https://` - REST API exploration
+- `git://` - Git repository inspection
+- `docker://` - Container inspection
+- And more! See ARCHITECTURE_URI_ADAPTERS.md for roadmap
+
 ## [0.10.1] - 2025-11-26
 
 ### Fixed
