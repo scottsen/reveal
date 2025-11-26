@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-11-26
+
+### 🌟 Major Feature: Hierarchical Outline Mode
+
+**NEW: `--outline` flag** - See code structure as a beautiful tree!
+
+Transform flat lists into hierarchical views that show relationships at a glance:
+
+```bash
+# Before: Flat list
+Functions (5):
+  app.py:4    create_user(self, username)
+  app.py:8    delete_user(self, user_id)
+  ...
+
+# After: Hierarchical tree
+UserManager (app.py:1)
+  ├─ create_user(self, username) [3 lines, depth:0] (line 4)
+  ├─ delete_user(self, user_id) [3 lines, depth:0] (line 8)
+  └─ UserValidator (nested class, line 12)
+     └─ validate_email(self, email) [2 lines, depth:0] (line 15)
+```
+
+**Key Benefits:**
+- **Instant understanding** - See which methods belong to which classes
+- **Nested structure visibility** - Detect nested classes, functions within functions
+- **Perfect for AI agents** - Hierarchical context improves code comprehension
+- **Combines with other flags** - Use with `--god` for complexity-focused outlines
+
+**Works across languages:**
+- Python: Classes with methods, nested classes
+- JavaScript/TypeScript: Classes with methods (via TreeSitter)
+- Markdown: Heading hierarchy (# → ## → ###)
+- Any language with TreeSitter support
+
+### Added
+- **`--outline` flag** - Hierarchical tree view of code structure
+  - Automatically builds parent-child relationships from line ranges
+  - Uses tree characters (├─, └─, │) for visual clarity
+  - Shows line numbers for vim/git integration
+  - Preserves complexity metrics ([X lines, depth:Y])
+  - Example: `reveal app.py --outline`
+  - Example: `reveal app.py --outline --god` (outline of only complex code)
+
+- **Enhanced TreeSitter analyzers** - Now track `line_end` for proper hierarchy
+  - Classes, structs, and all code elements now have line ranges
+  - Enables accurate parent-child relationship detection
+  - Fixes: Classes can now contain their methods in outline view
+
+- **God function detection** (`--god` flag) - Find high-complexity code (>50 lines or >4 depth)
+  - Quickly identify functions that need refactoring
+  - JSON format includes metrics: `line_count`, `depth` for filtering with jq
+  - Combines beautifully with `--outline` for focused views
+  - Example: `reveal app.py --god` shows only complex functions
+
+- **TreeSitter fallback system** - Automatic support for 35+ additional languages
+  - C, C++, C#, Java, PHP, Ruby, Swift, Kotlin, and 27 more languages
+  - Graceful fallback when explicit analyzer doesn't exist
+  - Transparency: Shows `(fallback: cpp)` indicator in output
+  - Metadata included in JSON
+
+- **--no-fallback flag** - Disable automatic fallback for strict workflows
+
+### Changed
+- **LLM optimization** - Removed emojis from all output formats (30-40% token savings)
+  - Clean, parseable format optimized for AI agents
+  - Hierarchical outline adds even more AI-friendly structure
+
+- **Code quality** - Refactored `show_structure()` function (54% complexity reduction)
+  - Extracted helper functions: `_format_links()`, `_format_code_blocks()`, `_format_standard_items()`
+  - Added `build_hierarchy()` and `render_outline()` for tree rendering
+  - Reduced from 208 lines → 95 lines (main function)
+  - Improved maintainability with proper type hints
+
+### Improved
+- **Help text** - Added clear examples for `--outline` flag
+- **Visual clarity** - Tree characters make structure instantly recognizable
+- **AI agent workflows** - Hierarchical context improves code understanding
+- **Developer experience** - See code organization at a glance
+
 ## [0.8.0] - 2025-11-25
 
 ### Changed

@@ -143,10 +143,12 @@ That's it! Your file type now works with reveal.
 
 ## 🚀 Features
 
+- ✅ **Hierarchical outline mode** - `--outline` shows code structure as a tree (NEW in v0.9.0!)
 - ✅ **Smart defaults** - No flags needed for 99% of use cases
 - ✅ **Directory trees** - See what's in a folder
 - ✅ **Structure extraction** - Imports, functions, classes, signals (GDScript)
 - ✅ **Element extraction** - Get specific function/class
+- ✅ **God function detection** - `--god` flag finds high-complexity code (NEW in v0.9.0!)
 - ✅ **18 file types built-in** - Python, Rust, Go, JavaScript, TypeScript, GDScript, Bash, Jupyter, Markdown, JSON, YAML, TOML, Nginx, Dockerfile, and more
 - ✅ **Shebang detection** - Extensionless scripts work automatically (detects `#!/usr/bin/env python3`, `#!/bin/bash`)
 - ✅ **50+ languages available** - Via optional tree-sitter (JS, TS, C#, Java, PHP, etc.)
@@ -158,6 +160,20 @@ That's it! Your file type now works with reveal.
 - ✅ **Windows compatible** - Full UTF-8/emoji support
 
 ## 📚 Real-World Examples
+
+### Hierarchical Outline (NEW!)
+```bash
+# See code structure as a tree
+$ reveal app.py --outline
+UserManager (app.py:1)
+  ├─ create_user(self, username) [3 lines, depth:0] (line 4)
+  ├─ delete_user(self, user_id) [3 lines, depth:0] (line 8)
+  └─ UserValidator (nested class, line 12)
+     └─ validate_email(self, email) [2 lines, depth:0] (line 15)
+
+# Find complex code with outline view
+$ reveal app.py --outline --god
+```
 
 ### AI Agent Workflow
 ```bash
@@ -301,7 +317,7 @@ Make `reveal` the standard way to explore code - for humans and AI agents alike.
 
 ---
 
-**Status:** 🚀 v0.4.0 - Enhanced CLI + Cross-Platform | **License:** MIT
+**Status:** 🚀 v0.9.0 - Hierarchical Outline Mode | **License:** MIT
 
 [![GitHub Stars](https://img.shields.io/github/stars/scottsen/reveal?style=social)](https://github.com/scottsen/reveal)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

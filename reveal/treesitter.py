@@ -137,8 +137,11 @@ class TreeSitterAnalyzer(FileAnalyzer):
             for node in nodes:
                 name = self._get_class_name(node)
                 if name:
+                    line_start = node.start_point[0] + 1
+                    line_end = node.end_point[0] + 1
                     classes.append({
-                        'line': node.start_point[0] + 1,
+                        'line': line_start,
+                        'line_end': line_end,
                         'name': name,
                     })
 
@@ -159,8 +162,11 @@ class TreeSitterAnalyzer(FileAnalyzer):
             for node in nodes:
                 name = self._get_struct_name(node)
                 if name:
+                    line_start = node.start_point[0] + 1
+                    line_end = node.end_point[0] + 1
                     structs.append({
-                        'line': node.start_point[0] + 1,
+                        'line': line_start,
+                        'line_end': line_end,
                         'name': name,
                     })
 

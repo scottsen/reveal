@@ -105,6 +105,10 @@ Examples:
   reveal main.py --god           # Show only god functions (>50 lines or >4 depth)
   reveal src/**/*.py --god       # Find all god functions in project
 
+  # Hierarchical outline (see structure as a tree!)
+  reveal app.py --outline        # Classes with methods, nested structures
+  reveal app.py --outline --god  # Outline showing only complex functions
+
   # Element extraction
   reveal app.py load_config      # Extract specific function
   reveal app.py Database         # Extract class definition
@@ -154,6 +158,8 @@ def _main_impl():
     parser.add_argument('--depth', type=int, default=3, help='Directory tree depth (default: 3)')
     parser.add_argument('--god', action='store_true',
                         help='Show only god functions/elements (high complexity or length)')
+    parser.add_argument('--outline', action='store_true',
+                        help='Show hierarchical outline (classes with methods, nested structures)')
 
     # Markdown entity filters
     parser.add_argument('--links', action='store_true',
@@ -301,6 +307,117 @@ def is_god_element(item: dict, analyzer: FileAnalyzer) -> bool:
             return True
 
     return False
+
+
+def build_hierarchy(structure: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Build hierarchical tree from flat structure.
+
+    Args:
+        structure: Flat structure from analyzer (imports, functions, classes)
+
+    Returns:
+        List of root-level items with 'children' added
+    """
+    # Collect all items with parent info
+    all_items = []
+
+    for category, items in structure.items():
+        for item in items:
+            item = item.copy()  # Don't mutate original
+            item['category'] = category
+            item['children'] = []
+            all_items.append(item)
+
+    # Sort by line number
+    all_items.sort(key=lambda x: x.get('line', 0))
+
+    # Build parent-child relationships based on line ranges
+    # An item is a child if it's within another item's line range
+    for i, item in enumerate(all_items):
+        item_start = item.get('line', 0)
+        item_end = item.get('line_end', item_start)
+
+        # Find potential parent (previous item that contains this one)
+        parent = None
+        for j in range(i - 1, -1, -1):
+            candidate = all_items[j]
+            candidate_start = candidate.get('line', 0)
+            candidate_end = candidate.get('line_end', candidate_start)
+
+            # Check if candidate contains this item
+            if candidate_start < item_start and candidate_end >= item_end:
+                # Found a containing item - use most recent (closest parent)
+                parent = candidate
+                break
+
+        # Add to parent's children or mark as root
+        if parent:
+            parent['children'].append(item)
+            item['is_child'] = True
+        else:
+            item['is_child'] = False
+
+    # Return only root-level items
+    return [item for item in all_items if not item.get('is_child', False)]
+
+
+def render_outline(items: List[Dict[str, Any]], path: Path, indent: str = '', is_root: bool = True) -> None:
+    """Render hierarchical outline with tree characters.
+
+    Args:
+        items: List of items (potentially with children)
+        path: File path for line number display
+        indent: Current indentation prefix
+        is_root: Whether these are root-level items
+    """
+    if not items:
+        return
+
+    for i, item in enumerate(items):
+        is_last_item = (i == len(items) - 1)
+
+        # Format item
+        line = item.get('line', '?')
+        name = item.get('name', '')
+        signature = item.get('signature', '')
+
+        # Build metrics display
+        metrics = ''
+        if 'line_count' in item or 'depth' in item:
+            parts = []
+            if 'line_count' in item:
+                parts.append(f"{item['line_count']} lines")
+            if 'depth' in item:
+                parts.append(f"depth:{item['depth']}")
+            if parts:
+                metrics = f" [{', '.join(parts)}]"
+
+        # Format output
+        if signature and name:
+            display = f"{name}{signature}{metrics}"
+        elif name:
+            display = f"{name}{metrics}"
+        else:
+            display = item.get('content', '?')
+
+        # Print item with appropriate prefix
+        if is_root:
+            # Root items - no tree chars, show full path
+            print(f"{display} ({path}:{line})")
+        else:
+            # Child items - use tree chars
+            tree_char = '└─ ' if is_last_item else '├─ '
+            print(f"{indent}{tree_char}{display} (line {line})")
+
+        # Recursively render children
+        if item.get('children'):
+            if is_root:
+                # Children of root get minimal indent
+                child_indent = '  '
+            else:
+                # Children of nested items continue the tree
+                child_indent = indent + ('   ' if is_last_item else '│  ')
+            render_outline(item['children'], path, child_indent, is_root=False)
 
 
 def _format_links(items: List[Dict[str, Any]], path: Path, output_format: str) -> None:
@@ -459,6 +576,23 @@ def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
     # Check if this is a fallback analyzer
     is_fallback = getattr(analyzer, 'is_fallback', False)
     fallback_lang = getattr(analyzer, 'fallback_language', None)
+
+    # Handle outline mode
+    if args and getattr(args, 'outline', False):
+        # Show file header
+        if is_fallback:
+            print(f"File: {path.name} (fallback: {fallback_lang})\n")
+        else:
+            print(f"File: {path.name}\n")
+
+        if not structure:
+            print("No structure available for this file type")
+            return
+
+        # Build hierarchy and render as tree
+        hierarchy = build_hierarchy(structure)
+        render_outline(hierarchy, path)
+        return
 
     if output_format == 'json':
         import json
