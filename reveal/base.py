@@ -20,6 +20,12 @@ class FileAnalyzer:
     - extract_element(type, name): Extract specific element (optional)
     """
 
+    # God function detection thresholds (subclasses can override)
+    god_thresholds = {
+        'line_count': 50,   # Elements over 50 lines
+        'depth': 4,         # Nesting depth over 4 levels
+    }
+
     def __init__(self, path: str):
         self.path = Path(path)
         self.lines = self._read_file()

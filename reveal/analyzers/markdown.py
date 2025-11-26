@@ -1,6 +1,7 @@
-"""Markdown file analyzer."""
+"""Markdown file analyzer with rich entity extraction."""
 
 import re
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 from ..base import FileAnalyzer, register
 
@@ -9,10 +10,47 @@ from ..base import FileAnalyzer, register
 class MarkdownAnalyzer(FileAnalyzer):
     """Markdown file analyzer.
 
-    Extracts sections based on headings.
+    Extracts headings, links, images, code blocks, and other entities.
     """
 
-    def get_structure(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_structure(self, extract_links: bool = False,
+                     link_type: Optional[str] = None,
+                     domain: Optional[str] = None,
+                     extract_code: bool = False,
+                     language: Optional[str] = None,
+                     inline_code: bool = False) -> Dict[str, List[Dict[str, Any]]]:
+        """Extract markdown structure.
+
+        Args:
+            extract_links: Include link extraction
+            link_type: Filter links by type (internal, external, email)
+            domain: Filter links by domain
+            extract_code: Include code block extraction
+            language: Filter code blocks by language
+            inline_code: Include inline code snippets
+
+        Returns:
+            Dict with headings and optionally links/code
+        """
+        result = {}
+
+        # Always extract headings
+        result['headings'] = self._extract_headings()
+
+        # Extract links if requested
+        if extract_links:
+            result['links'] = self._extract_links(link_type=link_type, domain=domain)
+
+        # Extract code blocks if requested
+        if extract_code:
+            result['code_blocks'] = self._extract_code_blocks(
+                language=language,
+                include_inline=inline_code
+            )
+
+        return result
+
+    def _extract_headings(self) -> List[Dict[str, Any]]:
         """Extract markdown headings."""
         headings = []
 
@@ -29,7 +67,202 @@ class MarkdownAnalyzer(FileAnalyzer):
                     'name': title,
                 })
 
-        return {'headings': headings}
+        return headings
+
+    def _extract_links(self, link_type: Optional[str] = None,
+                      domain: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Extract all links from markdown.
+
+        Args:
+            link_type: Filter by type (internal, external, email, all)
+            domain: Filter by domain (for external links)
+
+        Returns:
+            List of link dicts with line, text, url, type, etc.
+        """
+        links = []
+
+        # Match [text](url) pattern
+        link_pattern = r'\[([^\]]+)\]\(([^\)]+)\)'
+
+        for i, line in enumerate(self.lines, 1):
+            for match in re.finditer(link_pattern, line):
+                text = match.group(1)
+                url = match.group(2)
+
+                # Classify link
+                link_info = self._classify_link(url, text, i)
+
+                # Apply type filter
+                if link_type and link_type != 'all':
+                    if link_info['type'] != link_type:
+                        continue
+
+                # Apply domain filter (for external links)
+                if domain:
+                    if link_info['type'] == 'external':
+                        if domain not in url:
+                            continue
+                    else:
+                        continue  # Domain filter only applies to external links
+
+                links.append(link_info)
+
+        return links
+
+    def _classify_link(self, url: str, text: str, line: int) -> Dict[str, Any]:
+        """Classify a link and extract metadata.
+
+        Args:
+            url: Link URL
+            text: Link text
+            line: Line number
+
+        Returns:
+            Dict with link metadata
+        """
+        link_info = {
+            'line': line,
+            'text': text,
+            'url': url,
+        }
+
+        # Classify link type
+        if url.startswith('mailto:'):
+            link_info['type'] = 'email'
+            link_info['email'] = url.replace('mailto:', '')
+        elif url.startswith(('http://', 'https://')):
+            link_info['type'] = 'external'
+            link_info['protocol'] = 'https' if url.startswith('https') else 'http'
+
+            # Extract domain
+            domain_match = re.match(r'https?://([^/]+)', url)
+            if domain_match:
+                link_info['domain'] = domain_match.group(1)
+        else:
+            link_info['type'] = 'internal'
+            link_info['target'] = url
+
+            # Check if link is broken (file doesn't exist)
+            link_info['broken'] = self._is_broken_link(url)
+
+        return link_info
+
+    def _is_broken_link(self, url: str) -> bool:
+        """Check if an internal link is broken.
+
+        Args:
+            url: Internal link path
+
+        Returns:
+            True if link target doesn't exist
+        """
+        # Resolve relative to markdown file's directory
+        base_dir = self.path.parent
+        target = base_dir / url
+
+        # Try both as-is and with common extensions
+        if target.exists():
+            return False
+
+        # Try with .md extension if not already present
+        if not target.suffix:
+            if (target.parent / f"{target.name}.md").exists():
+                return False
+
+        return True
+
+    def _extract_code_blocks(self, language: Optional[str] = None,
+                            include_inline: bool = False) -> List[Dict[str, Any]]:
+        """Extract code blocks from markdown.
+
+        Args:
+            language: Filter by programming language
+            include_inline: Include inline code snippets
+
+        Returns:
+            List of code block dicts with line, language, source, etc.
+        """
+        code_blocks = []
+
+        # Extract fenced code blocks (```language)
+        in_block = False
+        block_start = None
+        block_lang = None
+        block_lines = []
+
+        for i, line in enumerate(self.lines, 1):
+            # Start of code block
+            if line.strip().startswith('```'):
+                if not in_block:
+                    # Beginning of block
+                    in_block = True
+                    block_start = i
+                    # Extract language tag (everything after ```)
+                    lang_tag = line.strip()[3:].strip()
+                    block_lang = lang_tag if lang_tag else 'text'
+                    block_lines = []
+                else:
+                    # End of block
+                    in_block = False
+
+                    # Apply language filter
+                    if language and block_lang != language:
+                        continue
+
+                    # Calculate line count
+                    line_count = len(block_lines)
+
+                    code_blocks.append({
+                        'line_start': block_start,
+                        'line_end': i,
+                        'language': block_lang,
+                        'source': '\n'.join(block_lines),
+                        'line_count': line_count,
+                        'type': 'fenced',
+                    })
+            elif in_block:
+                # Inside code block - accumulate lines
+                block_lines.append(line)
+
+        # Extract inline code if requested
+        if include_inline:
+            inline_blocks = self._extract_inline_code(language)
+            code_blocks.extend(inline_blocks)
+
+        return code_blocks
+
+    def _extract_inline_code(self, language: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Extract inline code snippets (`code`).
+
+        Args:
+            language: Language filter (not applicable to inline code)
+
+        Returns:
+            List of inline code dicts
+        """
+        inline_blocks = []
+
+        # Match `code` pattern (single backticks)
+        inline_pattern = r'`([^`]+)`'
+
+        for i, line in enumerate(self.lines, 1):
+            for match in re.finditer(inline_pattern, line):
+                code_text = match.group(1)
+
+                # Skip if it looks like a fenced code block marker
+                if code_text.startswith('``'):
+                    continue
+
+                inline_blocks.append({
+                    'line': i,
+                    'language': 'inline',
+                    'source': code_text,
+                    'type': 'inline',
+                    'column': match.start() + 1,
+                })
+
+        return inline_blocks
 
     def extract_element(self, element_type: str, name: str) -> Optional[Dict[str, Any]]:
         """Extract a markdown section.

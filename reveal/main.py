@@ -88,36 +88,55 @@ def main():
     _main_impl()
 
 
-def _main_impl():
-    """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description='Reveal: Explore code semantically - The simplest way to understand code',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
-Examples:
-  # Directory exploration
-  reveal src/                    # Show directory tree
-  reveal src/ --depth=5          # Deeper tree view
+def _build_help_epilog() -> str:
+    """Build dynamic help with conditional jq examples."""
+    import shutil
 
-  # File structure
-  reveal app.py                  # Show structure (imports, functions, classes)
-  reveal app.py --meta           # Show metadata (size, lines, encoding)
-  reveal player.gd               # GDScript support (Godot engine)
+    has_jq = shutil.which('jq') is not None
+
+    base_help = '''
+Examples:
+  # Basic structure exploration
+  reveal src/                    # Directory tree
+  reveal app.py                  # Show structure with metrics
+  reveal app.py --meta           # File metadata
+
+  # God function detection (find complex code!)
+  reveal main.py --god           # Show only god functions (>50 lines or >4 depth)
+  reveal src/**/*.py --god       # Find all god functions in project
 
   # Element extraction
   reveal app.py load_config      # Extract specific function
   reveal app.py Database         # Extract class definition
 
   # Output formats
-  reveal app.py --format=json    # JSON output for scripting
-  reveal app.py --format=grep    # Grep-compatible format
+  reveal app.py --format=json    # JSON for scripting
+  reveal app.py --format=grep    # Pipeable format
+'''
 
-  # Discovery
-  reveal --list-supported        # Show all supported file types
-  reveal --version               # Show version
+    if has_jq:
+        base_help += '''
+  # Advanced filtering with jq (powerful!)
+  reveal app.py --format=json | jq '.functions[] | select(.line_count > 100)'
+  reveal app.py --format=json | jq '.functions[] | select(.depth > 3)'
+  reveal app.py --format=json | jq '.functions[] | select(.line_count > 50 and .depth > 2)'
+  reveal src/**/*.py --format=json | jq -r '.functions[] | "\\(.file):\\(.line) \\(.name) [\\(.line_count) lines]"'
+'''
 
-Perfect filename:line integration - works with vim, git, grep, sed, awk!
-        '''
+    base_help += '''
+Perfect filename:line format - works with vim, git, grep, sed, awk!
+Metrics: All code files show [X lines, depth:Y] for complexity analysis
+'''
+
+    return base_help
+
+
+def _main_impl():
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description='Reveal: Explore code semantically - The simplest way to understand code',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_build_help_epilog()
     )
 
     parser.add_argument('path', nargs='?', help='File or directory to reveal')
@@ -131,6 +150,23 @@ Perfect filename:line integration - works with vim, git, grep, sed, awk!
     parser.add_argument('--format', choices=['text', 'json', 'grep'], default='text',
                         help='Output format (text, json, grep)')
     parser.add_argument('--depth', type=int, default=3, help='Directory tree depth (default: 3)')
+    parser.add_argument('--god', action='store_true',
+                        help='Show only god functions/elements (high complexity or length)')
+
+    # Markdown entity filters
+    parser.add_argument('--links', action='store_true',
+                        help='Extract links from markdown files')
+    parser.add_argument('--link-type', choices=['internal', 'external', 'email', 'all'],
+                        help='Filter links by type (requires --links)')
+    parser.add_argument('--domain', type=str,
+                        help='Filter links by domain (requires --links)')
+
+    parser.add_argument('--code', action='store_true',
+                        help='Extract code blocks from markdown files')
+    parser.add_argument('--language', type=str,
+                        help='Filter code blocks by language (requires --code)')
+    parser.add_argument('--inline', action='store_true',
+                        help='Include inline code snippets (requires --code)')
 
     args = parser.parse_args()
 
@@ -161,7 +197,7 @@ Perfect filename:line integration - works with vim, git, grep, sed, awk!
 
     elif path.is_file():
         # File → show structure or extract element
-        handle_file(str(path), args.element, args.meta, args.format)
+        handle_file(str(path), args.element, args.meta, args.format, args)
 
     else:
         print(f"Error: {args.path} is neither file nor directory", file=sys.stderr)
@@ -191,7 +227,7 @@ def list_supported_types():
     print(f"💡 Use 'reveal --help' for usage examples")
 
 
-def handle_file(path: str, element: Optional[str], show_meta: bool, output_format: str):
+def handle_file(path: str, element: Optional[str], show_meta: bool, output_format: str, args=None):
     """Handle file analysis.
 
     Args:
@@ -199,6 +235,7 @@ def handle_file(path: str, element: Optional[str], show_meta: bool, output_forma
         element: Optional element to extract
         show_meta: Whether to show metadata only
         output_format: Output format ('text', 'json', 'grep')
+        args: Full argument namespace (for filter options)
     """
     # Get analyzer
     analyzer_class = get_analyzer(path)
@@ -223,7 +260,7 @@ def handle_file(path: str, element: Optional[str], show_meta: bool, output_forma
         return
 
     # Default: show structure
-    show_structure(analyzer, output_format)
+    show_structure(analyzer, output_format, args)
 
 
 def show_metadata(analyzer: FileAnalyzer, output_format: str):
@@ -242,14 +279,68 @@ def show_metadata(analyzer: FileAnalyzer, output_format: str):
         print(f"\n→ reveal {meta['path']}")
 
 
-def show_structure(analyzer: FileAnalyzer, output_format: str):
+def is_god_element(item: dict, analyzer: FileAnalyzer) -> bool:
+    """Check if element exceeds god thresholds.
+
+    Uses analyzer-specific thresholds (each file type defines what's "too complex").
+    """
+    thresholds = analyzer.god_thresholds
+
+    # Check line count threshold
+    if 'line_count' in item and 'line_count' in thresholds:
+        if item['line_count'] > thresholds['line_count']:
+            return True
+
+    # Check nesting depth threshold
+    if 'depth' in item and 'depth' in thresholds:
+        if item['depth'] > thresholds['depth']:
+            return True
+
+    return False
+
+
+def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
     """Show file structure."""
-    structure = analyzer.get_structure()
+    # Build kwargs for get_structure based on analyzer type and args
+    kwargs = {}
+
+    # Check if this is a Markdown analyzer and if filters are requested
+    if args and hasattr(analyzer, '_extract_links'):
+        # This is a markdown analyzer
+        if args.links or args.link_type or args.domain:
+            kwargs['extract_links'] = True
+            if args.link_type:
+                kwargs['link_type'] = args.link_type
+            if args.domain:
+                kwargs['domain'] = args.domain
+
+        if args.code or args.language or args.inline:
+            kwargs['extract_code'] = True
+            if args.language:
+                kwargs['language'] = args.language
+            if args.inline:
+                kwargs['inline_code'] = args.inline
+
+    structure = analyzer.get_structure(**kwargs)
     path = analyzer.path
+
+    # Apply god filter if requested
+    if args and args.god:
+        filtered_structure = {}
+        for category, items in structure.items():
+            god_items = [item for item in items if is_god_element(item, analyzer)]
+            if god_items:
+                filtered_structure[category] = god_items
+        structure = filtered_structure
 
     if output_format == 'json':
         import json
-        print(json.dumps(structure, indent=2))
+        result = {
+            'file': str(path),
+            'type': analyzer.__class__.__name__.replace('Analyzer', '').lower(),
+            'structure': structure
+        }
+        print(json.dumps(result, indent=2))
         return
 
     if not structure:
@@ -268,31 +359,129 @@ def show_structure(analyzer: FileAnalyzer, output_format: str):
         category_name = category.capitalize()
         print(f"{category_name} ({len(items)}):")
 
-        for item in items:
-            line = item.get('line', '?')
-            name = item.get('name', '')
-            signature = item.get('signature', '')
-            content = item.get('content', '')
+        # Special handling for links
+        if category == 'links':
+            # Group by type for better readability
+            by_type = {}
+            for item in items:
+                link_type = item.get('type', 'unknown')
+                by_type.setdefault(link_type, []).append(item)
 
-            # Format based on what's available
-            if signature and name:
-                # Function with signature
-                if output_format == 'grep':
-                    print(f"{path}:{line}:{name}{signature}")
-                else:
-                    print(f"  {path}:{line:<6} {name}{signature}")
-            elif name:
-                # Just name (class, struct, etc.)
-                if output_format == 'grep':
-                    print(f"{path}:{line}:{name}")
-                else:
-                    print(f"  {path}:{line:<6} {name}")
-            elif content:
-                # Just content (import, etc.)
-                if output_format == 'grep':
-                    print(f"{path}:{line}:{content}")
-                else:
-                    print(f"  {path}:{line:<6} {content}")
+            for link_type in ['external', 'internal', 'email']:
+                if link_type not in by_type:
+                    continue
+
+                type_items = by_type[link_type]
+                print(f"\n  {link_type.capitalize()} ({len(type_items)}):")
+
+                for item in type_items:
+                    line = item.get('line', '?')
+                    text = item.get('text', '')
+                    url = item.get('url', '')
+                    broken = item.get('broken', False)
+
+                    if output_format == 'grep':
+                        print(f"{path}:{line}:{url}")
+                    else:
+                        if broken:
+                            print(f"    ❌ Line {line:<4} [{text}]({url}) [BROKEN]")
+                        else:
+                            if link_type == 'external':
+                                domain = item.get('domain', '')
+                                print(f"    Line {line:<4} [{text}]({url})")
+                                if domain:
+                                    print(f"             → {domain}")
+                            else:
+                                print(f"    Line {line:<4} [{text}]({url})")
+
+        elif category == 'code_blocks':
+            # Group by language for better readability
+            by_lang = {}
+            for item in items:
+                lang = item.get('language', 'unknown')
+                by_lang.setdefault(lang, []).append(item)
+
+            # Show fenced blocks grouped by language
+            for lang in sorted(by_lang.keys()):
+                if lang == 'inline':
+                    continue  # Show inline separately
+
+                lang_items = by_lang[lang]
+                print(f"\n  {lang.capitalize()} ({len(lang_items)} blocks):")
+
+                for item in lang_items:
+                    line_start = item.get('line_start', '?')
+                    line_end = item.get('line_end', '?')
+                    line_count = item.get('line_count', 0)
+                    source = item.get('source', '')
+
+                    if output_format == 'grep':
+                        # Show first line of code in grep format
+                        first_line = source.split('\n')[0] if source else ''
+                        print(f"{path}:{line_start}:{first_line}")
+                    else:
+                        # Show code block with preview
+                        print(f"    Lines {line_start}-{line_end} ({line_count} lines)")
+
+                        # Show first 3 lines as preview
+                        preview_lines = source.split('\n')[:3]
+                        for preview_line in preview_lines:
+                            print(f"      {preview_line}")
+                        if line_count > 3:
+                            print(f"      ... ({line_count - 3} more lines)")
+
+            # Show inline code if present
+            if 'inline' in by_lang:
+                inline_items = by_lang['inline']
+                print(f"\n  Inline code ({len(inline_items)} snippets):")
+                for item in inline_items[:10]:  # Limit to first 10
+                    line = item.get('line', '?')
+                    source = item.get('source', '')
+                    if output_format == 'grep':
+                        print(f"{path}:{line}:{source}")
+                    else:
+                        print(f"    Line {line:<4} `{source}`")
+                if len(inline_items) > 10:
+                    print(f"    ... and {len(inline_items) - 10} more")
+
+        else:
+            # Standard formatting for other entities
+            for item in items:
+                line = item.get('line', '?')
+                name = item.get('name', '')
+                signature = item.get('signature', '')
+                content = item.get('content', '')
+
+                # Build metrics display (if available)
+                metrics = ''
+                if 'line_count' in item or 'depth' in item:
+                    parts = []
+                    if 'line_count' in item:
+                        parts.append(f"{item['line_count']} lines")
+                    if 'depth' in item:
+                        parts.append(f"depth:{item['depth']}")
+                    if parts:
+                        metrics = f" [{', '.join(parts)}]"
+
+                # Format based on what's available
+                if signature and name:
+                    # Function with signature
+                    if output_format == 'grep':
+                        print(f"{path}:{line}:{name}{signature}")
+                    else:
+                        print(f"  {path}:{line:<6} {name}{signature}{metrics}")
+                elif name:
+                    # Just name (class, struct, etc.)
+                    if output_format == 'grep':
+                        print(f"{path}:{line}:{name}")
+                    else:
+                        print(f"  {path}:{line:<6} {name}{metrics}")
+                elif content:
+                    # Just content (import, etc.)
+                    if output_format == 'grep':
+                        print(f"{path}:{line}:{content}")
+                    else:
+                        print(f"  {path}:{line:<6} {content}")
 
         print()  # Blank line between categories
 

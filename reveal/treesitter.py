@@ -90,7 +90,7 @@ class TreeSitterAnalyzer(FileAnalyzer):
         return imports
 
     def _extract_functions(self) -> List[Dict[str, Any]]:
-        """Extract function definitions."""
+        """Extract function definitions with complexity metrics."""
         functions = []
 
         # Common function node types
@@ -107,10 +107,17 @@ class TreeSitterAnalyzer(FileAnalyzer):
             for node in nodes:
                 name = self._get_function_name(node)
                 if name:
+                    line_start = node.start_point[0] + 1
+                    line_end = node.end_point[0] + 1
+                    line_count = line_end - line_start + 1
+
                     functions.append({
-                        'line': node.start_point[0] + 1,
+                        'line': line_start,
+                        'line_end': line_end,
                         'name': name,
                         'signature': self._get_signature(node),
+                        'line_count': line_count,
+                        'depth': self._get_nesting_depth(node),
                     })
 
         return functions
@@ -279,3 +286,50 @@ class TreeSitterAnalyzer(FileAnalyzer):
             return signature
 
         return first_line
+
+    def _get_nesting_depth(self, node) -> int:
+        """Calculate maximum nesting depth within a function node.
+
+        Counts control flow structures: if, for, while, with, try, match, etc.
+        Inspired by TIA's complexity scanner.
+
+        Args:
+            node: Tree-sitter node (function/method)
+
+        Returns:
+            Maximum nesting depth (0 = no nesting)
+        """
+        if not node:
+            return 0
+
+        # Control flow node types across languages
+        nesting_types = {
+            # Conditionals
+            'if_statement', 'if_expression', 'if',
+            # Loops
+            'for_statement', 'for_expression', 'for', 'while_statement', 'while',
+            # Exception handling
+            'try_statement', 'try', 'with_statement', 'with',
+            # Pattern matching
+            'match_statement', 'match_expression', 'case_statement',
+            # Other control flow
+            'do_statement', 'switch_statement',
+        }
+
+        def get_depth(n, current_depth=0):
+            """Recursively calculate depth."""
+            max_depth = current_depth
+
+            for child in n.children:
+                child_depth = current_depth
+                # If this child is a nesting construct, increase depth
+                if child.type in nesting_types:
+                    child_depth = current_depth + 1
+
+                # Recursively check children
+                nested_depth = get_depth(child, child_depth)
+                max_depth = max(max_depth, nested_depth)
+
+            return max_depth
+
+        return get_depth(node)
