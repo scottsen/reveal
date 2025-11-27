@@ -78,7 +78,8 @@ class NginxAnalyzer(FileAnalyzer):
                     path = match.group(1)
                     loc_info = {
                         'line': i,
-                        'path': path,
+                        'name': path,  # For display
+                        'path': path,  # For nginx-specific reference
                         'server': current_server['name'] if current_server else 'unknown'
                     }
 

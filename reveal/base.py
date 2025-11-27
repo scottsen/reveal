@@ -208,6 +208,13 @@ def get_analyzer(path: str, allow_fallback: bool = True) -> Optional[type]:
     if filename in _ANALYZER_REGISTRY:
         return _ANALYZER_REGISTRY.get(filename)
 
+    # Path-based detection for nginx configs (handles /etc/nginx/sites-available/*, etc.)
+    path_str = str(file_path.resolve())
+    if '/nginx/' in path_str or '/etc/nginx/' in path_str:
+        # Import here to avoid circular imports
+        from .analyzers.nginx import NginxAnalyzer
+        return NginxAnalyzer
+
     # Still no match - check shebang for extensionless scripts
     if not ext or ext not in _ANALYZER_REGISTRY:
         shebang_ext = _detect_shebang(path)

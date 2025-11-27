@@ -877,7 +877,7 @@ def extract_element(analyzer: FileAnalyzer, element: str, output_format: str):
         output_format: Output format
     """
     # Try common element types
-    for element_type in ['function', 'class', 'struct', 'section']:
+    for element_type in ['function', 'class', 'struct', 'section', 'server', 'location', 'upstream']:
         result = analyzer.extract_element(element_type, element)
         if result:
             break
