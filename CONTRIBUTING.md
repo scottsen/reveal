@@ -1,34 +1,46 @@
 # Contributing to reveal
 
-Thank you for your interest in contributing to `reveal`! This project is designed to grow through community contributions, especially new file type plugins.
+Thank you for your interest in contributing to `reveal`! This project is designed to grow through community contributions, especially new file type analyzers.
 
 ## Ways to Contribute
 
-### 1. Add New File Type Plugins 🔌
+### 1. Add New File Type Analyzers 🔌
 
 **This is the easiest and most impactful way to contribute!**
 
-Create a YAML file in `plugins/` that defines how to reveal your file type:
+**For programming languages** (uses tree-sitter, 10 lines of code):
 
-```yaml
-# plugins/rust.yaml
-extension: .rs
-name: Rust Source
-description: Rust source files
-icon: 🦀
+```python
+# reveal/analyzers/kotlin.py
+from ..base import register
+from ..treesitter import TreeSitterAnalyzer
 
-levels:
-  0: {name: metadata, description: "File stats"}
-  1: {name: structure, analyzer: rust_structure}
-  2: {name: preview, analyzer: rust_preview}
-  3: {name: full, description: "Complete source"}
-
-features: {grep: true, context: true, paging: true}
+@register('.kt', name='Kotlin', icon='🟣')
+class KotlinAnalyzer(TreeSitterAnalyzer):
+    """Kotlin file analyzer."""
+    language = 'kotlin'
 ```
 
-Then implement the analyzer in `reveal/analyzers/rust_analyzer.py`.
+**For structured text files** (custom logic, 50-200 lines):
 
-See [docs/PLUGIN_GUIDE.md](docs/PLUGIN_GUIDE.md) for details.
+```python
+# reveal/analyzers/ini.py
+from ..base import FileAnalyzer, register
+
+@register('.ini', name='INI', icon='📋')
+class IniAnalyzer(FileAnalyzer):
+    """INI configuration file analyzer."""
+
+    def get_structure(self):
+        # Extract sections and keys
+        ...
+
+    def extract_element(self, element_type, name):
+        # Extract specific section
+        ...
+```
+
+**See:** [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for complete guide with examples.
 
 ### 2. Improve Existing Analyzers
 
@@ -77,13 +89,17 @@ ruff check reveal/
 pytest tests/test_plugin_loader.py -v
 ```
 
-## Plugin Development Workflow
+## Analyzer Development Workflow
 
-1. **Create YAML definition** in `plugins/your-filetype.yaml`
-2. **Implement analyzer** (if needed) in `reveal/analyzers/`
-3. **Add tests** in `tests/test_your_filetype.py`
-4. **Update documentation** - add to README's supported types
-5. **Submit PR** with example files
+1. **Check tree-sitter support:** Run `reveal --list-supported` to see if your language is already available
+2. **Create analyzer file** in `reveal/analyzers/your_filetype.py`
+3. **Register it** in `reveal/analyzers/__init__.py` by importing your analyzer class
+4. **Add tests** in `tests/test_your_filetype.py`
+5. **Add validation sample** in `validation_samples/sample.your_ext`
+6. **Update README** - add to supported types list
+7. **Submit PR** with examples
+
+**Complete guide:** See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for step-by-step instructions
 
 ## Code Style
 
@@ -174,23 +190,26 @@ Brief description of changes
 
 ## Priority Areas
 
-**Most wanted plugins:**
-- Excel/Spreadsheets (.xlsx, .csv)
-- Jupyter Notebooks (.ipynb)
-- TypeScript (.ts, .tsx)
-- Go (.go)
-- Rust (.rs)
-- SQL (.sql)
-- Terraform (.tf)
-- Docker (Dockerfile)
-- Shell scripts (.sh, .bash)
+**Most wanted analyzers:**
+- CSV/Excel (.csv, .xlsx) - Data file exploration
+- SQL (.sql) - SQL script parsing
+- Terraform (.tf) - Infrastructure as code
+- Protocol Buffers (.proto) - API definitions
+- GraphQL (.graphql) - Schema exploration
+- XML (.xml) - Structured data
+- Kotlin (.kt) - Android development
+- Swift (.swift) - iOS development
+- Java (.java) - Enterprise apps
 
 **Most wanted features:**
-- Syntax highlighting
-- Language server protocol integration
-- Export to JSON/markdown
-- Recursive directory exploration
-- GitHub Action integration
+- Call graph analysis (who calls what)
+- Relationship tracking (imports, dependencies)
+- Pattern detection (design patterns)
+- Enhanced outline mode
+- Better error messages
+- Performance improvements
+
+**Future: URI adapters** - See [ROADMAP.md](ROADMAP.md)
 
 ## License
 

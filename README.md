@@ -333,21 +333,28 @@ $ reveal env:// | grep "(sensitive)"
 
 ```
 reveal/
-├── base.py              # FileAnalyzer base class
-├── treesitter.py        # TreeSitterAnalyzer (50+ languages!)
-├── tree_view.py         # Directory tree view
-├── new_cli.py           # Simple CLI (200 lines)
-└── analyzers_new/
-    ├── python.py        # 15 lines
-    ├── rust.py          # 13 lines
-    ├── go.py            # 13 lines
-    ├── markdown.py      # 79 lines
-    ├── yaml_json.py     # 110 lines
-    └── ...              # Easy to add more!
+├── base.py              # Registration & analyzer base (~380 lines)
+├── main.py              # CLI & output formatting (~920 lines)
+├── treesitter.py        # TreeSitter integration for 50+ languages (~345 lines)
+├── tree_view.py         # Directory tree rendering (~105 lines)
+├── analyzers/           # File type analyzers
+│   ├── python.py        # 15 lines (tree-sitter)
+│   ├── rust.py          # 13 lines (tree-sitter)
+│   ├── nginx.py         # 186 lines (custom logic)
+│   ├── markdown.py      # 312 lines (custom logic)
+│   └── ...              # 14 analyzers total
+└── adapters/            # URI adapters (NEW!)
+    ├── base.py          # Adapter protocol
+    ├── env.py           # Environment variables (v0.11.0)
+    └── ...              # More coming! (postgres, docker, https)
 ```
 
-**Total core:** ~500 lines
-**Per analyzer:** 10-50 lines
+**Total codebase:** ~3,400 lines
+**Core:** ~1,700 lines
+**Analyzers:** 10-300 lines each (most are < 25 lines!)
+**Adapters:** New system for exploring non-file resources
+
+**See:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for deep dive
 
 ## 📖 Optional Flags
 
@@ -395,7 +402,7 @@ Make `reveal` the standard way to explore code - for humans and AI agents alike.
 
 ---
 
-**Status:** 🚀 v0.9.0 - Hierarchical Outline Mode | **License:** MIT
+**Status:** 🚀 v0.11.0 - URI Adapters | **License:** MIT | **Roadmap:** [ROADMAP.md](ROADMAP.md)
 
 [![GitHub Stars](https://img.shields.io/github/stars/scottsen/reveal?style=social)](https://github.com/scottsen/reveal)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
