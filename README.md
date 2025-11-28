@@ -17,6 +17,26 @@ Developers and AI agents waste time reading entire files when they only need to 
 
 All with perfect `filename:line` integration for vim, git, grep, and other tools.
 
+---
+
+## Part of the Semantic Infrastructure Lab
+
+**reveal** is a production component of the [Semantic Infrastructure Lab (SIL)](https://github.com/semantic-infrastructure-lab/sil) — building the semantic substrate for intelligent systems.
+
+**Role in the Semantic OS:**
+- **Layer 5:** Human Interfaces / SIM (progressive disclosure of structure)
+
+**SIL Principles Applied:**
+- ✅ **Clarity** — Explicit structure visibility (no hidden complexity)
+- ✅ **Simplicity** — Zero configuration, smart defaults
+- ✅ **Composability** — Unix tool composition (pipes, grep, vim)
+- ✅ **Correctness** — Reliable parsing via Tree-sitter
+- ✅ **Verifiability** — Precise line numbers, reproducible output
+
+**Quick Links:** [SIL Manifesto](https://github.com/semantic-infrastructure-lab/sil/blob/main/docs/canonical/MANIFESTO.md) • [Unified Architecture](https://github.com/semantic-infrastructure-lab/sil/blob/main/docs/architecture/UNIFIED_ARCHITECTURE_GUIDE.md) • [Project Index](https://github.com/semantic-infrastructure-lab/sil/blob/main/projects/PROJECT_INDEX.md)
+
+---
+
 ## ⚡ Quick Start
 
 **Install:**
