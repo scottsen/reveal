@@ -32,28 +32,31 @@ Create GitHub Release → GitHub Actions → PyPI Published
 
 **What it does:**
 1. Builds package (`python -m build`)
-2. Validates (`twine check dist/*`)
-3. Publishes to PyPI using `PYPI_API_TOKEN` secret
+2. Publishes to PyPI using **Trusted Publishing** (OIDC)
 
 **Result:** Package live on PyPI in ~1-2 minutes
+
+**Security:** Uses PyPI Trusted Publishing (no tokens needed!) ✅
 
 ---
 
 ## Prerequisites (One-Time Setup)
 
-### 1. PyPI API Token
+### 1. PyPI Trusted Publishing (Already Configured) ✅
 
-**Get token:**
-- Go to: https://pypi.org/manage/account/token/
-- Scope: "Entire account" or project `reveal-cli`
-- Copy the token (starts with `pypi-`)
+**Reveal uses PyPI Trusted Publishing** - more secure than API tokens!
 
-**Add to GitHub:**
-1. Go to: https://github.com/scottsen/reveal/settings/secrets/actions
-2. Click "New repository secret"
-3. Name: `PYPI_API_TOKEN`
-4. Value: Your token
-5. Save
+**Already configured at:**
+- https://pypi.org/manage/project/reveal-cli/settings/publishing/
+
+**How it works:**
+- GitHub proves identity via OpenID Connect (OIDC)
+- PyPI verifies the workflow came from `scottsen/reveal`
+- No tokens to manage or rotate!
+
+**To verify setup:**
+1. Go to: https://pypi.org/manage/project/reveal-cli/settings/publishing/
+2. Should see publisher: `scottsen/reveal` with workflow `publish-to-pypi.yml`
 
 ### 2. GitHub CLI
 
@@ -106,23 +109,26 @@ gh release create v0.11.1 \
   --notes "See CHANGELOG.md"
 ```
 
-### Method 3: Manual PyPI Upload (Emergency Only)
+### Method 3: Manual PyPI Upload (Not Recommended)
 
-If GitHub Actions fails:
+⚠️ **Note:** Manual upload no longer works with Trusted Publishing.
+Use GitHub Actions (recommended) or temporarily add an API token.
 
+**If you must upload manually:**
+1. Generate temporary API token: https://pypi.org/manage/account/token/
+2. Upload with token:
 ```bash
 # Build
 rm -rf dist/
 python -m build
 
-# Validate
-twine check dist/*
-
 # Upload
 twine upload dist/*
 # Username: __token__
-# Password: <your PyPI token>
+# Password: <your temporary PyPI token>
 ```
+
+**Better option:** Re-run failed workflow or create new release.
 
 ---
 
@@ -163,8 +169,8 @@ gh run view <run-id> --log-failed
 ```
 
 **Common issues:**
-- Missing `PYPI_API_TOKEN` secret → Add in GitHub settings
-- Token expired → Generate new token
+- Trusted publishing not configured → Verify at https://pypi.org/manage/project/reveal-cli/settings/publishing/
+- Workflow permission issues → Check `id-token: write` in workflow file
 - Network issues → Re-run workflow manually
 
 **Manual fallback:**
@@ -259,4 +265,4 @@ gh run list --limit 5
 
 ---
 
-**Last Updated:** 2025-11-27
+**Last Updated:** 2025-11-29 (Updated for PyPI Trusted Publishing)
