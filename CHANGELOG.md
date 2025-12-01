@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2025-12-01
+
+### ✨ Enhancement: Agent-Friendly Navigation Breadcrumbs
+
+**NEW: Context-aware navigation hints optimized for AI agents!**
+
+reveal now provides intelligent breadcrumb suggestions after every operation, helping AI agents discover the next logical steps without reading documentation.
+
+**Features:**
+- **File-type-aware suggestions**: Python files suggest `--check` and `--outline`, Markdown suggests `--links` and `--code`, etc.
+- **Progressive disclosure**: Shows relevant next steps based on what you're viewing
+- **15+ file types supported**: Custom breadcrumbs for Python, JS, TS, Rust, Go, Bash, GDScript, Markdown, YAML, JSON, JSONL, TOML, Dockerfile, Nginx, Jupyter
+
+**Examples:**
+```bash
+# Python file shows code-specific breadcrumbs
+$ reveal app.py
+Next: reveal app.py <function>   # Extract specific element
+      reveal app.py --check      # Check code quality
+      reveal app.py --outline    # Nested structure
+
+# Markdown shows content-specific breadcrumbs
+$ reveal README.md
+Next: reveal README.md <heading>   # Extract specific element
+      reveal README.md --links      # Extract links
+      reveal README.md --code       # Extract code blocks
+
+# After extracting an element
+$ reveal app.py main
+Extracted main (180 lines)
+  → Back: reveal app.py          # See full structure
+  → Check: reveal app.py --check # Quality analysis
+```
+
+### 🐛 Bug Fixes
+- Fixed: AGENT_HELP.md and AGENT_HELP_FULL.md now properly included in pip packages via MANIFEST.in
+
+### 📝 Documentation
+- Updated all `--god` flag references to `--check` (flag was renamed in v0.13.0)
+- Updated README status line to v0.13.1
+
 ## [0.13.0] - 2025-11-30
 
 ### 🎯 Major Feature: Pattern Detection System

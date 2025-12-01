@@ -217,7 +217,7 @@ That's it! Your file type now works with reveal.
 - ✅ **Directory trees** - See what's in a folder
 - ✅ **Structure extraction** - Imports, functions, classes, signals (GDScript)
 - ✅ **Element extraction** - Get specific function/class
-- ✅ **God function detection** - `--god` flag finds high-complexity code (v0.9.0)
+- ✅ **Pattern detection** - `--check` flag finds code quality issues (v0.13.0)
 - ✅ **18 file types built-in** - Python, Rust, Go, JavaScript, TypeScript, GDScript, Bash, Jupyter, Markdown, JSON, YAML, TOML, Nginx, Dockerfile, and more
 - ✅ **Shebang detection** - Extensionless scripts work automatically (detects `#!/usr/bin/env python3`, `#!/bin/bash`)
 - ✅ **50+ languages available** - Via optional tree-sitter (JS, TS, C#, Java, PHP, etc.)
@@ -241,7 +241,7 @@ UserManager (app.py:1)
      └─ validate_email(self, email) [2 lines, depth:0] (line 15)
 
 # Find complex code with outline view
-$ reveal app.py --outline --god
+$ reveal app.py --outline --check
 ```
 
 ### AI Agent Workflow
@@ -303,7 +303,7 @@ $ reveal app.py | awk '/Functions/,/^$/ {if ($2 ~ /:/) print $3}'
 ### Unix Pipeline Workflows (--stdin)
 ```bash
 # Analyze files from find
-$ find src/ -name "*.py" | reveal --stdin --god
+$ find src/ -name "*.py" | reveal --stdin --check
 
 # Analyze changed files in git
 $ git diff --name-only | reveal --stdin --outline
@@ -313,10 +313,10 @@ $ find . -name "*.py" | \
   reveal --stdin --format=json | \
   jq '.functions[] | select(.line_count > 100)'
 
-# CI/CD: Check for god functions in PR
+# CI/CD: Check for code quality issues in PR
 $ git diff --name-only origin/main | \
   grep "\.py$" | \
-  reveal --stdin --god --format=grep
+  reveal --stdin --check --format=grep
 ```
 
 The `--stdin` flag enables composability with any tool that outputs file paths:
@@ -470,7 +470,7 @@ Make `reveal` the standard way to explore code - for humans and AI agents alike.
 
 ---
 
-**Status:** 🚀 v0.11.0 - URI Adapters | **License:** MIT | **Roadmap:** [ROADMAP.md](ROADMAP.md)
+**Status:** 🚀 v0.13.1 - Agent-Friendly Navigation | **License:** MIT | **Roadmap:** [ROADMAP.md](ROADMAP.md)
 
 [![GitHub Stars](https://img.shields.io/github/stars/scottsen/reveal?style=social)](https://github.com/scottsen/reveal)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

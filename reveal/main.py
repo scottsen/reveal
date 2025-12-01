@@ -207,6 +207,113 @@ Remember: Reveal is about **semantic understanding**, not raw text. Think in ter
 """
 
 
+# ============================================================================
+# Breadcrumb System - Agent-Friendly Navigation Hints
+# ============================================================================
+
+def get_element_placeholder(file_type):
+    """Get appropriate element placeholder for file type.
+
+    Args:
+        file_type: File type string (e.g., 'python', 'yaml')
+
+    Returns:
+        String placeholder like '<function>', '<key>', etc.
+    """
+    mapping = {
+        'python': '<function>',
+        'javascript': '<function>',
+        'typescript': '<function>',
+        'rust': '<function>',
+        'go': '<function>',
+        'bash': '<function>',
+        'gdscript': '<function>',
+        'yaml': '<key>',
+        'json': '<key>',
+        'jsonl': '<entry>',
+        'toml': '<key>',
+        'markdown': '<heading>',
+        'dockerfile': '<instruction>',
+        'nginx': '<directive>',
+        'jupyter': '<cell>',
+    }
+    return mapping.get(file_type, '<element>')
+
+
+def get_file_type_from_analyzer(analyzer):
+    """Get file type string from analyzer class name.
+
+    Args:
+        analyzer: FileAnalyzer instance
+
+    Returns:
+        File type string (e.g., 'python', 'markdown') or None
+    """
+    class_name = type(analyzer).__name__
+    mapping = {
+        'PythonAnalyzer': 'python',
+        'JavaScriptAnalyzer': 'javascript',
+        'TypeScriptAnalyzer': 'typescript',
+        'RustAnalyzer': 'rust',
+        'GoAnalyzer': 'go',
+        'BashAnalyzer': 'bash',
+        'MarkdownAnalyzer': 'markdown',
+        'YamlAnalyzer': 'yaml',
+        'JsonAnalyzer': 'json',
+        'JsonlAnalyzer': 'jsonl',
+        'TomlAnalyzer': 'toml',
+        'DockerfileAnalyzer': 'dockerfile',
+        'NginxAnalyzer': 'nginx',
+        'GDScriptAnalyzer': 'gdscript',
+        'JupyterAnalyzer': 'jupyter',
+        'TreeSitterAnalyzer': None,  # Generic fallback
+    }
+    return mapping.get(class_name, None)
+
+
+def print_breadcrumbs(context, path, file_type=None, **kwargs):
+    """Print navigation breadcrumbs with reveal command suggestions.
+
+    Args:
+        context: 'structure', 'element', 'metadata'
+        path: File or directory path
+        file_type: Optional file type for context-specific suggestions
+        **kwargs: Additional context (element_name, line_count, etc.)
+    """
+    print()  # Blank line before breadcrumbs
+
+    if context == 'metadata':
+        print(f"Next: reveal {path}              # See structure")
+        print(f"      reveal {path} --check      # Quality check")
+
+    elif context == 'structure':
+        element_placeholder = get_element_placeholder(file_type)
+        print(f"Next: reveal {path} {element_placeholder}   # Extract specific element")
+
+        if file_type in ['python', 'javascript', 'typescript', 'rust', 'go', 'bash', 'gdscript']:
+            print(f"      reveal {path} --check      # Check code quality")
+            print(f"      reveal {path} --outline    # Nested structure")
+        elif file_type == 'markdown':
+            print(f"      reveal {path} --links      # Extract links")
+            print(f"      reveal {path} --code       # Extract code blocks")
+        elif file_type in ['yaml', 'json', 'toml', 'jsonl']:
+            print(f"      reveal {path} --check      # Validate syntax")
+        elif file_type in ['dockerfile', 'nginx']:
+            print(f"      reveal {path} --check      # Validate configuration")
+
+    elif context == 'element':
+        element_name = kwargs.get('element_name', '')
+        line_count = kwargs.get('line_count', '')
+
+        info = f"Extracted {element_name}"
+        if line_count:
+            info += f" ({line_count} lines)"
+
+        print(info)
+        print(f"  → Back: reveal {path}          # See full structure")
+        print(f"  → Check: reveal {path} --check # Quality analysis")
+
+
 def check_for_updates():
     """Check PyPI for newer version (once per day, non-blocking).
 
@@ -900,7 +1007,7 @@ def show_metadata(analyzer: FileAnalyzer, output_format: str):
         print(f"Size:     {meta['size_human']}")
         print(f"Lines:    {meta['lines']}")
         print(f"Encoding: {meta['encoding']}")
-        print(f"\n→ reveal {meta['path']}")
+        print_breadcrumbs('metadata', meta['path'])
 
 
 def build_hierarchy(structure: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
@@ -1260,8 +1367,8 @@ def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
 
     # Navigation hints
     if output_format == 'text':
-        print(f"→ reveal {path} <element>")
-        print(f"→ vim {path}:<line>")
+        file_type = get_file_type_from_analyzer(analyzer)
+        print_breadcrumbs('structure', path, file_type=file_type)
 
 
 def extract_element(analyzer: FileAnalyzer, element: str, output_format: str):
@@ -1309,8 +1416,10 @@ def extract_element(analyzer: FileAnalyzer, element: str, output_format: str):
         print(formatted)
 
         # Navigation hints
-        print(f"\n→ vim {path}:{line_start}")
-        print(f"→ reveal {path}")
+        file_type = get_file_type_from_analyzer(analyzer)
+        line_count = line_end - line_start + 1
+        print_breadcrumbs('element', path, file_type=file_type,
+                         element_name=name, line_count=line_count, line_start=line_start)
 
 
 if __name__ == '__main__':
