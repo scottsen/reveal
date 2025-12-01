@@ -13,24 +13,34 @@ class MarkdownAnalyzer(FileAnalyzer):
     Extracts headings, links, images, code blocks, and other entities.
     """
 
-    def get_structure(self, extract_links: bool = False,
+    def get_structure(self, head: int = None, tail: int = None,
+                     range: tuple = None,
+                     extract_links: bool = False,
                      link_type: Optional[str] = None,
                      domain: Optional[str] = None,
                      extract_code: bool = False,
                      language: Optional[str] = None,
-                     inline_code: bool = False) -> Dict[str, List[Dict[str, Any]]]:
+                     inline_code: bool = False,
+                     **kwargs) -> Dict[str, List[Dict[str, Any]]]:
         """Extract markdown structure.
 
         Args:
+            head: Show first N semantic units (per category)
+            tail: Show last N semantic units (per category)
+            range: Show semantic units in range (start, end) - 1-indexed (per category)
             extract_links: Include link extraction
             link_type: Filter links by type (internal, external, email)
             domain: Filter links by domain
             extract_code: Include code block extraction
             language: Filter code blocks by language
             inline_code: Include inline code snippets
+            **kwargs: Additional parameters (unused)
 
         Returns:
             Dict with headings and optionally links/code
+
+        Note: Slicing applies to each category independently
+        (e.g., --head 5 shows first 5 headings AND first 5 links)
         """
         result = {}
 
@@ -47,6 +57,13 @@ class MarkdownAnalyzer(FileAnalyzer):
                 language=language,
                 include_inline=inline_code
             )
+
+        # Apply semantic slicing to each category
+        if head or tail or range:
+            for category in result:
+                result[category] = self._apply_semantic_slice(
+                    result[category], head, tail, range
+                )
 
         return result
 

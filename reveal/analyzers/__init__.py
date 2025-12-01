@@ -12,6 +12,7 @@ from .rust import RustAnalyzer
 from .go import GoAnalyzer
 from .markdown import MarkdownAnalyzer
 from .yaml_json import YamlAnalyzer, JsonAnalyzer
+from .jsonl import JsonlAnalyzer
 from .gdscript import GDScriptAnalyzer
 from .jupyter_analyzer import JupyterAnalyzer
 from .javascript import JavaScriptAnalyzer
@@ -28,6 +29,7 @@ __all__ = [
     'MarkdownAnalyzer',
     'YamlAnalyzer',
     'JsonAnalyzer',
+    'JsonlAnalyzer',
     'GDScriptAnalyzer',
     'JupyterAnalyzer',
     'JavaScriptAnalyzer',

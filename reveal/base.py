@@ -1,9 +1,12 @@
 """Base analyzer class for reveal - clean, simple design."""
 
 import os
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import hashlib
+
+logger = logging.getLogger(__name__)
 
 
 class FileAnalyzer:
@@ -20,10 +23,11 @@ class FileAnalyzer:
     - extract_element(type, name): Extract specific element (optional)
     """
 
-    # God function detection thresholds (subclasses can override)
-    god_thresholds = {
-        'line_count': 50,   # Elements over 50 lines
-        'depth': 4,         # Nesting depth over 4 levels
+    # Sloppy code heuristics (context-aware, subclasses override for domain-specific rules)
+    # These define what "needs attention" means for each file type
+    sloppy_heuristics = {
+        'line_count': 50,   # General: elements over 50 lines
+        'depth': 4,         # General: nesting depth over 4 levels
     }
 
     def __init__(self, path: str):
@@ -40,9 +44,12 @@ class FileAnalyzer:
                 with open(self.path, 'r', encoding=encoding) as f:
                     return f.read().splitlines()
             except (UnicodeDecodeError, LookupError):
+                # Try next encoding
+                logger.debug(f"Failed to read {self.path} with {encoding}, trying next")
                 continue
 
         # Last resort: read as binary and decode with errors='replace'
+        logger.debug(f"All encodings failed for {self.path}, using binary mode with error replacement")
         with open(self.path, 'rb') as f:
             content = f.read().decode('utf-8', errors='replace')
             return content.splitlines()
@@ -63,13 +70,54 @@ class FileAnalyzer:
             'encoding': self._detect_encoding(),
         }
 
-    def get_structure(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_structure(self, head: int = None, tail: int = None,
+                      range: tuple = None, **kwargs) -> Dict[str, List[Dict[str, Any]]]:
         """Return file structure (imports, functions, classes, etc.).
+
+        Args:
+            head: Show first N semantic units
+            tail: Show last N semantic units
+            range: Show semantic units in range (start, end) - 1-indexed
+            **kwargs: Additional analyzer-specific parameters
 
         Override in subclasses for custom extraction.
         Default: Returns empty structure.
+
+        Note: head/tail/range are mutually exclusive and apply to semantic units
+        (records, functions, sections) not raw text lines.
         """
         return {}
+
+    def _apply_semantic_slice(self, items: List[Dict[str, Any]],
+                              head: int = None, tail: int = None,
+                              range: tuple = None) -> List[Dict[str, Any]]:
+        """Apply head/tail/range slicing to a list of semantic units.
+
+        Args:
+            items: List of semantic units (records, functions, sections, etc.)
+            head: Show first N units
+            tail: Show last N units
+            range: Show units in range (start, end) - 1-indexed
+
+        Returns:
+            Sliced list of items
+
+        This is a shared helper that all analyzers can use to implement
+        semantic navigation consistently.
+        """
+        if not items:
+            return items
+
+        if head is not None:
+            return items[:head]
+        elif tail is not None:
+            return items[-tail:]
+        elif range is not None:
+            start, end = range
+            # Convert 1-indexed to 0-indexed, inclusive range
+            return items[start-1:end]
+        else:
+            return items
 
     def extract_element(self, element_type: str, name: str) -> Optional[Dict[str, Any]]:
         """Extract a specific element from the file.
@@ -244,7 +292,9 @@ def _detect_shebang(path: str) -> Optional[str]:
         # Decode with error handling
         try:
             shebang = first_line.decode('utf-8', errors='ignore').strip()
-        except:
+        except (UnicodeDecodeError, AttributeError):
+            # UnicodeDecodeError: decode failed despite errors='ignore'
+            # AttributeError: first_line is None or invalid
             return None
 
         if not shebang.startswith('#!'):

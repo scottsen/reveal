@@ -50,11 +50,21 @@ class TreeSitterAnalyzer(FileAnalyzer):
             # Parsing failed - fall back to text analysis
             self.tree = None
 
-    def get_structure(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_structure(self, head: int = None, tail: int = None,
+                      range: tuple = None, **kwargs) -> Dict[str, List[Dict[str, Any]]]:
         """Extract structure using tree-sitter.
+
+        Args:
+            head: Show first N semantic units (per category)
+            tail: Show last N semantic units (per category)
+            range: Show semantic units in range (start, end) - 1-indexed (per category)
+            **kwargs: Additional parameters (unused)
 
         Returns imports, functions, classes, structs, etc.
         Works for ANY tree-sitter language!
+
+        Note: Slicing applies to each category independently
+        (e.g., --head 5 shows first 5 functions AND first 5 classes)
         """
         if not self.tree:
             return {}
@@ -66,6 +76,13 @@ class TreeSitterAnalyzer(FileAnalyzer):
         structure['functions'] = self._extract_functions()
         structure['classes'] = self._extract_classes()
         structure['structs'] = self._extract_structs()
+
+        # Apply semantic slicing to each category
+        if head or tail or range:
+            for category in structure:
+                structure[category] = self._apply_semantic_slice(
+                    structure[category], head, tail, range
+                )
 
         # Remove empty categories
         return {k: v for k, v in structure.items() if v}

@@ -10,6 +10,202 @@ from .base import get_analyzer, get_all_analyzers, FileAnalyzer
 from .tree_view import show_directory_tree
 from . import __version__
 
+# AI Agent Best Practices - exposed via --recommend-prompt
+RECOMMENDED_PROMPT = """# Reveal - Semantic Code Explorer Best Practices
+
+## Core Concept: Progressive Disclosure (Orient → Navigate → Focus)
+
+Never read entire files blindly. Use reveal's semantic navigation for token efficiency.
+
+### The Pattern (ALWAYS follow this order):
+
+1. **ORIENT** - What exists?
+   ```bash
+   reveal .                    # Directory tree
+   reveal file.py --outline    # File structure overview
+   ```
+
+2. **NAVIGATE** - What's relevant?
+   ```bash
+   reveal file.py --head 10    # First 10 functions (NEW in v0.12!)
+   reveal file.py --tail 5     # Last 5 functions (bugs cluster here!)
+   reveal file.py --sloppy     # Code needing attention
+   ```
+
+3. **FOCUS** - Get details
+   ```bash
+   reveal file.py function_name  # Extract specific function
+   ```
+
+### Token Efficiency Examples
+
+**❌ BAD - Traditional approach:**
+```bash
+# Read entire 500-line file = ~7,500 tokens
+cat large_file.py
+```
+
+**✅ GOOD - Reveal approach:**
+```bash
+# 1. See structure (50 tokens)
+reveal large_file.py --outline
+
+# 2. Navigate to relevant area (300 tokens)
+reveal large_file.py --tail 5
+
+# 3. Extract what you need (200 tokens)
+reveal large_file.py problematic_function
+
+# Total: ~550 tokens = 13x more efficient!
+```
+
+### When to Use What
+
+**Use `reveal <dir>/` for:**
+- Initial project exploration
+- Understanding codebase structure
+- Finding relevant files
+
+**Use `reveal file.py --outline` for:**
+- Unknown files (don't know what's in them)
+- Large files (>200 lines)
+- Understanding file organization
+
+**Use `reveal file.py --head/--tail/--range` for:**
+- Targeting specific areas (bugs often cluster at end of files)
+- Iterative deepening (explore progressively)
+- Token budget constraints
+
+**Use `reveal file.py --sloppy` for:**
+- Finding code quality issues
+- Identifying complex functions
+- Code review workflows
+
+**Use `reveal file.py element_name` for:**
+- Extracting specific functions/classes
+- Focused code reading
+- After you've oriented and navigated
+
+### Integration with Other Tools
+
+**With AST scanners:**
+```bash
+# Scanner identifies issues with line numbers
+tia ast scan complexity .
+
+# Use reveal to explore the problem files
+reveal problematic_file.py --outline
+reveal problematic_file.py --tail 5
+reveal problematic_file.py bad_function
+```
+
+**With grep/search:**
+```bash
+# Find files
+grep -r "pattern" . --files-with-matches
+
+# Explore structure
+reveal file.py --outline
+
+# Navigate to area
+reveal file.py --head 10
+```
+
+### Output Formats
+
+**Text (default):** Human-readable, perfect for quick exploration
+**JSON (--format=json):** Scriptable, pipe to jq for filtering
+**Grep (--format=grep):** Pipeable, works with vim/git/awk
+
+```bash
+# JSON + jq for advanced filtering
+reveal file.py --format=json | jq '.structure.functions[] | select(.line_count > 50)'
+
+# Grep format for vim integration
+reveal file.py --format=grep | grep "async"
+```
+
+### Common Anti-Patterns to Avoid
+
+❌ **DON'T read files before revealing:**
+```bash
+cat file.py  # Wastes tokens!
+```
+
+✅ **DO reveal first:**
+```bash
+reveal file.py --outline  # See what's there
+reveal file.py func       # Then extract what you need
+```
+
+❌ **DON'T guess what's in a file:**
+```bash
+# Assuming structure without checking
+```
+
+✅ **DO discover structure first:**
+```bash
+reveal file.py --outline  # Know before you act
+```
+
+❌ **DON'T read full files for one function:**
+```bash
+cat 500_line_file.py  # Just to see one function
+```
+
+✅ **DO extract specifically:**
+```bash
+reveal file.py --outline           # Find the function
+reveal file.py specific_function   # Extract only what you need
+```
+
+### Real-World Workflow Example
+
+**Task:** Find and fix a bug in a large codebase
+
+```bash
+# 1. ORIENT - Understand structure
+reveal src/
+
+# 2. NAVIGATE - Find relevant file
+reveal src/problematic_module.py --outline
+
+# 3. NAVIGATE - Target area where bugs cluster
+reveal src/problematic_module.py --tail 5
+
+# 4. FOCUS - Extract the problem function
+reveal src/problematic_module.py buggy_function
+
+# Total tokens: ~1,000 vs. ~15,000 for reading all files
+# Result: 15x token efficiency!
+```
+
+### Best Practices Summary
+
+1. **Always start with --outline** for unknown files
+2. **Use --head/--tail for large files** before reading fully
+3. **Extract specific elements** instead of reading entire files
+4. **Combine with jq** for powerful filtering (--format=json)
+5. **Use --sloppy** for code quality checks
+6. **Progressive disclosure** = Orient → Navigate → Focus
+
+### Version Notes
+
+- v0.11: Added URI adapters (env://)
+- v0.12: Added semantic navigation (--head, --tail, --range)
+- v0.12: Renamed --god to --show-sloppy (context-aware best practices)
+
+### Learn More
+
+```bash
+reveal --help                    # Full help
+reveal --list-supported          # See all supported file types
+reveal --recommend-prompt        # This message
+```
+
+Remember: Reveal is about **semantic understanding**, not raw text. Think in terms of **functions, classes, sections** - not lines.
+"""
+
 
 def check_for_updates():
     """Check PyPI for newer version (once per day, non-blocking).
@@ -200,24 +396,33 @@ Examples:
   reveal app.py                  # Show structure with metrics
   reveal app.py --meta           # File metadata
 
-  # God function detection (find complex code!)
-  reveal main.py --god           # Show only god functions (>50 lines or >4 depth)
-  reveal src/**/*.py --god       # Find all god functions in project
+  # Semantic navigation - iterative deepening! (NEW in v0.12!)
+  reveal conversation.jsonl --head 10    # First 10 records
+  reveal conversation.jsonl --tail 5     # Last 5 records
+  reveal conversation.jsonl --range 48-52 # Records 48-52 (1-indexed)
+  reveal app.py --head 5                 # First 5 functions
+  reveal doc.md --tail 3                 # Last 3 headings
+
+  # Show sloppy code (context-aware best practices!)
+  reveal main.py --show-sloppy   # Python: long functions, deep nesting
+  reveal nginx.conf --sloppy     # Nginx: missing SSL, weak ciphers (future)
+  reveal Dockerfile --sloppy     # Docker: root user, :latest tags (future)
 
   # Hierarchical outline (see structure as a tree!)
   reveal app.py --outline        # Classes with methods, nested structures
-  reveal app.py --outline --god  # Outline showing only complex functions
+  reveal app.py --outline --sloppy  # Outline showing only code needing attention
 
   # Element extraction
   reveal app.py load_config      # Extract specific function
   reveal app.py Database         # Extract class definition
+  reveal conversation.jsonl 42   # Extract record #42
 
   # Output formats
   reveal app.py --format=json    # JSON for scripting
   reveal app.py --format=grep    # Pipeable format
 
   # Pipeline workflows (Unix composability!)
-  find src/ -name "*.py" | reveal --stdin --god
+  find src/ -name "*.py" | reveal --stdin --sloppy
   git diff --name-only | reveal --stdin --outline
   git ls-files "*.ts" | reveal --stdin --format=json
   ls src/*.py | reveal --stdin
@@ -225,6 +430,11 @@ Examples:
 
     if has_jq:
         base_help += '''
+  # Semantic navigation + jq (token-efficient exploration!)
+  reveal conversation.jsonl --tail 10 --format=json | jq '.structure.records[] | select(.name | contains("user"))'
+  reveal app.py --head 20 --format=json | jq '.structure.functions[] | select(.line_count > 30)'
+  reveal log.jsonl --range 100-150 --format=json | jq '.structure.records[] | select(.name | contains("error"))'
+
   # Advanced filtering with jq (powerful!)
   reveal app.py --format=json | jq '.structure.functions[] | select(.line_count > 100)'
   reveal app.py --format=json | jq '.structure.functions[] | select(.depth > 3)'
@@ -233,7 +443,7 @@ Examples:
 
   # Pipeline + jq (combine the power!)
   find . -name "*.py" | reveal --stdin --format=json | jq '.structure.functions[] | select(.line_count > 100)'
-  git diff --name-only | grep "\\.py$" | reveal --stdin --god --format=grep
+  git diff --name-only | grep "\\.py$" | reveal --stdin --sloppy --format=grep
 '''
 
     base_help += '''
@@ -251,7 +461,7 @@ Examples:
 
 File-type specific features:
   • Markdown: --links, --code (extract links/code blocks with filtering)
-  • Code files: --god, --outline (find complexity, show hierarchical structure)
+  • Code files: --show-sloppy, --outline (find code needing attention, show hierarchical structure)
   • URI adapters: env:// (environment variables) - more coming soon!
 
 Perfect filename:line format - works with vim, git, grep, sed, awk!
@@ -277,6 +487,8 @@ def _main_impl():
     parser.add_argument('--version', action='version', version=f'reveal {__version__}')
     parser.add_argument('--list-supported', '-l', action='store_true',
                         help='List all supported file types')
+    parser.add_argument('--recommend-prompt', action='store_true',
+                        help='Show AI agent best practices for using reveal efficiently')
     parser.add_argument('--stdin', action='store_true',
                         help='Read file paths from stdin (one per line) - enables Unix pipeline workflows')
     parser.add_argument('--meta', action='store_true', help='Show metadata only')
@@ -285,10 +497,18 @@ def _main_impl():
     parser.add_argument('--no-fallback', action='store_true',
                         help='Disable TreeSitter fallback for unknown file types')
     parser.add_argument('--depth', type=int, default=3, help='Directory tree depth (default: 3)')
-    parser.add_argument('--god', action='store_true',
-                        help='Show only god functions/elements (>50 lines OR depth >4)')
+    parser.add_argument('--show-sloppy', '--sloppy', action='store_true',
+                        help='Show only elements that violate best practices (context-aware per file type)')
     parser.add_argument('--outline', action='store_true',
                         help='Show hierarchical outline (classes with methods, nested structures)')
+
+    # Semantic navigation (head/tail/range)
+    parser.add_argument('--head', type=int, metavar='N',
+                        help='Show first N semantic units (records, functions, sections)')
+    parser.add_argument('--tail', type=int, metavar='N',
+                        help='Show last N semantic units (records, functions, sections)')
+    parser.add_argument('--range', type=str, metavar='START-END',
+                        help='Show semantic units in range (e.g., 10-20, 1-indexed)')
 
     # Markdown entity filters
     parser.add_argument('--links', action='store_true',
@@ -307,12 +527,40 @@ def _main_impl():
 
     args = parser.parse_args()
 
+    # Validate navigation arguments (mutually exclusive)
+    nav_args = [args.head, args.tail, args.range]
+    nav_count = sum(1 for arg in nav_args if arg is not None)
+    if nav_count > 1:
+        print("Error: --head, --tail, and --range are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse and validate range if provided
+    if args.range:
+        try:
+            start, end = args.range.split('-')
+            start, end = int(start), int(end)
+            if start < 1 or end < 1:
+                raise ValueError("Range must be 1-indexed (start from 1)")
+            if start > end:
+                raise ValueError("Range start must be <= end")
+            # Store parsed range as tuple for easy access
+            args.range = (start, end)
+        except ValueError as e:
+            print(f"Error: Invalid range format '{args.range}': {e}", file=sys.stderr)
+            print("Expected format: START-END (e.g., 10-20, 1-indexed)", file=sys.stderr)
+            sys.exit(1)
+
     # Check for updates (once per day, non-blocking, opt-out available)
     check_for_updates()
 
     # Handle --list-supported
     if args.list_supported:
         list_supported_types()
+        sys.exit(0)
+
+    # Handle --recommend-prompt
+    if args.recommend_prompt:
+        print(RECOMMENDED_PROMPT)
         sys.exit(0)
 
     # Handle --stdin (read file paths from stdin)
@@ -345,7 +593,7 @@ def _main_impl():
 
         sys.exit(0)
 
-    # Path is required if not using --list-supported or --stdin
+    # Path is required if not using --list-supported, --recommend-prompt, or --stdin
     if not args.path:
         parser.print_help()
         sys.exit(1)
@@ -432,7 +680,8 @@ def list_supported_types():
                 try:
                     get_language(lang)
                     available_fallbacks.append((display_name, ext))
-                except:
+                except Exception:
+                    # Language not available in tree-sitter-languages, skip it
                     pass
 
         if available_fallbacks:
@@ -506,22 +755,29 @@ def show_metadata(analyzer: FileAnalyzer, output_format: str):
         print(f"\n→ reveal {meta['path']}")
 
 
-def is_god_element(item: dict, analyzer: FileAnalyzer) -> bool:
-    """Check if element exceeds god thresholds.
+def is_sloppy_element(item: dict, analyzer: FileAnalyzer) -> bool:
+    """Check if element violates best practices for its file type.
 
-    Uses analyzer-specific thresholds (each file type defines what's "too complex").
+    Uses analyzer-specific heuristics (each file type defines what's "sloppy").
+    Examples:
+    - Python: line_count > 50, depth > 4, bare except
+    - SQL: SELECT *, no WHERE clause, missing indexes
+    - Dockerfile: root user, :latest tags, no healthcheck
     """
-    thresholds = analyzer.god_thresholds
+    heuristics = analyzer.sloppy_heuristics
 
     # Check line count threshold
-    if 'line_count' in item and 'line_count' in thresholds:
-        if item['line_count'] > thresholds['line_count']:
+    if 'line_count' in item and 'line_count' in heuristics:
+        if item['line_count'] > heuristics['line_count']:
             return True
 
     # Check nesting depth threshold
-    if 'depth' in item and 'depth' in thresholds:
-        if item['depth'] > thresholds['depth']:
+    if 'depth' in item and 'depth' in heuristics:
+        if item['depth'] > heuristics['depth']:
             return True
+
+    # Future: Add more heuristic checks here as analyzers add them
+    # - bare_except, select_star, root_user, etc.
 
     return False
 
@@ -756,14 +1012,24 @@ def _format_standard_items(items: List[Dict[str, Any]], path: Path, output_forma
                 print(f"  {path}:{line:<6} {content}")
 
 
-def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
-    """Show file structure."""
-    # Build kwargs for get_structure based on analyzer type and args
+def _build_analyzer_kwargs(analyzer: FileAnalyzer, args) -> Dict[str, Any]:
+    """Build kwargs for get_structure() based on analyzer type and args.
+
+    This centralizes all analyzer-specific argument mapping.
+    """
     kwargs = {}
 
-    # Check if this is a Markdown analyzer and if filters are requested
+    # Navigation/slicing arguments (apply to all analyzers)
+    if args:
+        if getattr(args, 'head', None):
+            kwargs['head'] = args.head
+        if getattr(args, 'tail', None):
+            kwargs['tail'] = args.tail
+        if getattr(args, 'range', None):
+            kwargs['range'] = args.range
+
+    # Markdown-specific filters
     if args and hasattr(analyzer, '_extract_links'):
-        # This is a markdown analyzer
         if args.links or args.link_type or args.domain:
             kwargs['extract_links'] = True
             if args.link_type:
@@ -778,70 +1044,52 @@ def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
             if args.inline:
                 kwargs['inline_code'] = args.inline
 
-    structure = analyzer.get_structure(**kwargs)
-    path = analyzer.path
+    return kwargs
 
-    # Apply god filter if requested
-    if args and args.god:
-        filtered_structure = {}
-        for category, items in structure.items():
-            god_items = [item for item in items if is_god_element(item, analyzer)]
-            if god_items:
-                filtered_structure[category] = god_items
-        structure = filtered_structure
 
-    # Check if this is a fallback analyzer
-    is_fallback = getattr(analyzer, 'is_fallback', False)
-    fallback_lang = getattr(analyzer, 'fallback_language', None)
+def _apply_sloppy_filter(structure: Dict[str, List[Dict[str, Any]]],
+                         analyzer: FileAnalyzer) -> Dict[str, List[Dict[str, Any]]]:
+    """Filter structure to show only elements that violate best practices."""
+    filtered = {}
+    for category, items in structure.items():
+        sloppy_items = [item for item in items if is_sloppy_element(item, analyzer)]
+        if sloppy_items:
+            filtered[category] = sloppy_items
+    return filtered
 
-    # Handle outline mode
-    if args and getattr(args, 'outline', False):
-        # Show file header
-        if is_fallback:
-            print(f"File: {path.name} (fallback: {fallback_lang})\n")
-        else:
-            print(f"File: {path.name}\n")
 
-        if not structure:
-            print("No structure available for this file type")
-            return
-
-        # Build hierarchy and render as tree
-        hierarchy = build_hierarchy(structure)
-        render_outline(hierarchy, path)
-        return
-
-    if output_format == 'json':
-        import json
-        result = {
-            'file': str(path),
-            'type': analyzer.__class__.__name__.replace('Analyzer', '').lower(),
-            'analyzer': {
-                'type': 'fallback' if is_fallback else 'explicit',
-                'language': fallback_lang if is_fallback else None,
-                'explicit': not is_fallback,
-                'name': analyzer.__class__.__name__
-            },
-            'structure': structure
-        }
-        print(json.dumps(result, indent=2))
-        return
-
-    if not structure:
-        if is_fallback:
-            print(f"File: {path.name} (fallback: {fallback_lang})\n")
-        else:
-            print(f"File: {path.name}\n")
-        print("No structure available for this file type")
-        return
-
-    # Show file header with fallback indicator
-    if is_fallback:
+def _print_file_header(path: Path, is_fallback: bool = False, fallback_lang: str = None) -> None:
+    """Print file header with optional fallback indicator."""
+    if is_fallback and fallback_lang:
         print(f"File: {path.name} (fallback: {fallback_lang})\n")
     else:
         print(f"File: {path.name}\n")
 
-    # Show each category
+
+def _render_json_output(analyzer: FileAnalyzer, structure: Dict[str, List[Dict[str, Any]]]) -> None:
+    """Render structure as JSON output."""
+    import json
+
+    is_fallback = getattr(analyzer, 'is_fallback', False)
+    fallback_lang = getattr(analyzer, 'fallback_language', None)
+
+    result = {
+        'file': str(analyzer.path),
+        'type': analyzer.__class__.__name__.replace('Analyzer', '').lower(),
+        'analyzer': {
+            'type': 'fallback' if is_fallback else 'explicit',
+            'language': fallback_lang if is_fallback else None,
+            'explicit': not is_fallback,
+            'name': analyzer.__class__.__name__
+        },
+        'structure': structure
+    }
+    print(json.dumps(result, indent=2))
+
+
+def _render_text_categories(structure: Dict[str, List[Dict[str, Any]]],
+                            path: Path, output_format: str) -> None:
+    """Render each category in text format."""
     for category, items in structure.items():
         if not items:
             continue
@@ -850,17 +1098,59 @@ def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
         category_name = category.capitalize()
         print(f"{category_name} ({len(items)}):")
 
-        # Special handling for links
+        # Special handling for different categories
         if category == 'links':
             _format_links(items, path, output_format)
-
         elif category == 'code_blocks':
             _format_code_blocks(items, path, output_format)
-
         else:
             _format_standard_items(items, path, output_format)
 
         print()  # Blank line between categories
+
+
+def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
+    """Show file structure.
+
+    Simplified using extracted helper functions.
+    """
+    # Build kwargs and get structure
+    kwargs = _build_analyzer_kwargs(analyzer, args)
+    structure = analyzer.get_structure(**kwargs)
+    path = analyzer.path
+
+    # Apply sloppy filter if requested
+    if args and getattr(args, 'show_sloppy', False):
+        structure = _apply_sloppy_filter(structure, analyzer)
+
+    # Get fallback info
+    is_fallback = getattr(analyzer, 'is_fallback', False)
+    fallback_lang = getattr(analyzer, 'fallback_language', None)
+
+    # Handle outline mode
+    if args and getattr(args, 'outline', False):
+        _print_file_header(path, is_fallback, fallback_lang)
+        if not structure:
+            print("No structure available for this file type")
+            return
+        hierarchy = build_hierarchy(structure)
+        render_outline(hierarchy, path)
+        return
+
+    # Handle JSON output
+    if output_format == 'json':
+        _render_json_output(analyzer, structure)
+        return
+
+    # Handle empty structure
+    if not structure:
+        _print_file_header(path, is_fallback, fallback_lang)
+        print("No structure available for this file type")
+        return
+
+    # Text output: show header, categories, and navigation hints
+    _print_file_header(path, is_fallback, fallback_lang)
+    _render_text_categories(structure, path, output_format)
 
     # Navigation hints
     if output_format == 'text':
