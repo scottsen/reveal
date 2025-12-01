@@ -470,7 +470,7 @@ Make `reveal` the standard way to explore code - for humans and AI agents alike.
 
 ---
 
-**Status:** 🚀 v0.13.1 - Agent-Friendly Navigation | **License:** MIT | **Roadmap:** [ROADMAP.md](ROADMAP.md)
+**Status:** 🚀 v0.13.3 - Windows Compatibility | **License:** MIT | **Roadmap:** [ROADMAP.md](ROADMAP.md)
 
 [![GitHub Stars](https://img.shields.io/github/stars/scottsen/reveal?style=social)](https://github.com/scottsen/reveal)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

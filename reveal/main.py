@@ -327,8 +327,13 @@ def check_for_updates():
         return
 
     try:
-        # Setup cache directory
-        cache_dir = Path.home() / '.config' / 'reveal'
+        # Setup cache directory (platform-appropriate)
+        if sys.platform == 'win32':
+            # Windows: Use %LOCALAPPDATA%\reveal
+            cache_dir = Path(os.getenv('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')) / 'reveal'
+        else:
+            # Unix/macOS: Use ~/.config/reveal
+            cache_dir = Path.home() / '.config' / 'reveal'
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file = cache_dir / 'last_update_check'
 

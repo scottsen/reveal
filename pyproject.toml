@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reveal-cli"
-version = "0.13.2"
+version = "0.13.3"
 description = "Semantic code exploration with progressive disclosure - explore directories, files, and code elements with smart defaults"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -17,6 +17,10 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",

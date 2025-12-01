@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.3] - 2025-12-01
+
+### 🪟 Windows Compatibility Improvements
+
+**NEW: Native Windows support with platform-appropriate conventions!**
+
+reveal now properly handles Windows platform conventions, making it a first-class citizen on all operating systems.
+
+**What's Fixed:**
+- **Cache directory**: Now uses `%LOCALAPPDATA%\reveal` on Windows (instead of Unix `~/.config/reveal`)
+- **Environment variables**: Added 16 Windows system variables (USERPROFILE, USERNAME, COMSPEC, etc.) to `reveal env://`
+- **PyPI metadata**: Updated classifiers to explicitly declare Windows, Linux, and macOS support
+
+**Testing:**
+- Added comprehensive Windows compatibility test suite (7 new tests)
+- CI now validates on Windows, Linux, and macOS before every release
+- All 85 tests passing on all platforms
+
+**Impact:**
+- Windows users get native platform experience
+- `reveal env://` properly categorizes Windows system variables
+- Update checks store cache in correct Windows location
+- Cross-platform testing prevents regressions
+
+**Technical Details:**
+- Platform detection: Uses `sys.platform == 'win32'` for Windows-specific paths
+- Fallback behavior: Gracefully handles missing LOCALAPPDATA environment variable
+- Backward compatible: Unix/macOS paths unchanged
+
 ## [0.13.2] - 2025-12-01
 
 ### 🐛 Critical Bug Fix: AGENT_HELP Packaging

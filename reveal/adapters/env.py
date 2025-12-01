@@ -14,8 +14,14 @@ class EnvAdapter(ResourceAdapter):
     ]
 
     SYSTEM_VARS = {
+        # Unix/Linux/macOS
         'PATH', 'HOME', 'SHELL', 'USER', 'LANG', 'PWD',
-        'LOGNAME', 'TERM', 'DISPLAY', 'EDITOR', 'PAGER'
+        'LOGNAME', 'TERM', 'DISPLAY', 'EDITOR', 'PAGER',
+        # Windows equivalents and system variables
+        'USERPROFILE', 'USERNAME', 'COMSPEC', 'SYSTEMROOT',
+        'WINDIR', 'TEMP', 'TMP', 'OS', 'PROCESSOR_ARCHITECTURE',
+        'PATHEXT', 'COMPUTERNAME', 'HOMEDRIVE', 'HOMEPATH',
+        'LOCALAPPDATA', 'APPDATA', 'PROGRAMFILES'
     }
 
     def __init__(self):
