@@ -29,7 +29,7 @@ Never read entire files blindly. Use reveal's semantic navigation for token effi
    ```bash
    reveal file.py --head 10    # First 10 functions (NEW in v0.12!)
    reveal file.py --tail 5     # Last 5 functions (bugs cluster here!)
-   reveal file.py --sloppy     # Code needing attention
+   reveal file.py --check      # Code quality checks
    ```
 
 3. **FOCUS** - Get details
@@ -76,7 +76,7 @@ reveal large_file.py problematic_function
 - Iterative deepening (explore progressively)
 - Token budget constraints
 
-**Use `reveal file.py --sloppy` for:**
+**Use `reveal file.py --check` for:**
 - Finding code quality issues
 - Identifying complex functions
 - Code review workflows
@@ -186,14 +186,14 @@ reveal src/problematic_module.py buggy_function
 2. **Use --head/--tail for large files** before reading fully
 3. **Extract specific elements** instead of reading entire files
 4. **Combine with jq** for powerful filtering (--format=json)
-5. **Use --sloppy** for code quality checks
+5. **Use --check** for code quality checks
 6. **Progressive disclosure** = Orient → Navigate → Focus
 
 ### Version Notes
 
 - v0.11: Added URI adapters (env://)
 - v0.12: Added semantic navigation (--head, --tail, --range)
-- v0.12: Renamed --god to --show-sloppy (context-aware best practices)
+- v0.13: Added pattern detectors (--check replaces --sloppy)
 
 ### Learn More
 
@@ -403,14 +403,14 @@ Examples:
   reveal app.py --head 5                 # First 5 functions
   reveal doc.md --tail 3                 # Last 3 headings
 
-  # Show sloppy code (context-aware best practices!)
-  reveal main.py --show-sloppy   # Python: long functions, deep nesting
-  reveal nginx.conf --sloppy     # Nginx: missing SSL, weak ciphers (future)
-  reveal Dockerfile --sloppy     # Docker: root user, :latest tags (future)
+  # Code quality checks (pattern detectors)
+  reveal main.py --check         # Run all quality checks
+  reveal main.py --check --select=B,S  # Select specific categories
+  reveal Dockerfile --check      # Docker best practices
 
   # Hierarchical outline (see structure as a tree!)
   reveal app.py --outline        # Classes with methods, nested structures
-  reveal app.py --outline --sloppy  # Outline showing only code needing attention
+  reveal app.py --outline --check    # Outline with quality checks
 
   # Element extraction
   reveal app.py load_config      # Extract specific function
@@ -422,7 +422,7 @@ Examples:
   reveal app.py --format=grep    # Pipeable format
 
   # Pipeline workflows (Unix composability!)
-  find src/ -name "*.py" | reveal --stdin --sloppy
+  find src/ -name "*.py" | reveal --stdin --check
   git diff --name-only | reveal --stdin --outline
   git ls-files "*.ts" | reveal --stdin --format=json
   ls src/*.py | reveal --stdin
@@ -443,7 +443,7 @@ Examples:
 
   # Pipeline + jq (combine the power!)
   find . -name "*.py" | reveal --stdin --format=json | jq '.structure.functions[] | select(.line_count > 100)'
-  git diff --name-only | grep "\\.py$" | reveal --stdin --sloppy --format=grep
+  git diff --name-only | grep "\\.py$" | reveal --stdin --check --format=grep
 '''
 
     base_help += '''
@@ -461,7 +461,7 @@ Examples:
 
 File-type specific features:
   • Markdown: --links, --code (extract links/code blocks with filtering)
-  • Code files: --show-sloppy, --outline (find code needing attention, show hierarchical structure)
+  • Code files: --check, --outline (quality checks, show hierarchical structure)
   • URI adapters: env:// (environment variables) - more coming soon!
 
 Perfect filename:line format - works with vim, git, grep, sed, awk!
@@ -489,6 +489,10 @@ def _main_impl():
                         help='List all supported file types')
     parser.add_argument('--recommend-prompt', action='store_true',
                         help='Show AI agent best practices for using reveal efficiently')
+    parser.add_argument('--agent-help', action='store_true',
+                        help='Show agent usage guide (llms.txt-style brief reference)')
+    parser.add_argument('--agent-help-full', action='store_true',
+                        help='Show comprehensive agent guide (complete examples, patterns, troubleshooting)')
     parser.add_argument('--stdin', action='store_true',
                         help='Read file paths from stdin (one per line) - enables Unix pipeline workflows')
     parser.add_argument('--meta', action='store_true', help='Show metadata only')
@@ -497,10 +501,20 @@ def _main_impl():
     parser.add_argument('--no-fallback', action='store_true',
                         help='Disable TreeSitter fallback for unknown file types')
     parser.add_argument('--depth', type=int, default=3, help='Directory tree depth (default: 3)')
-    parser.add_argument('--show-sloppy', '--sloppy', action='store_true',
-                        help='Show only elements that violate best practices (context-aware per file type)')
     parser.add_argument('--outline', action='store_true',
                         help='Show hierarchical outline (classes with methods, nested structures)')
+
+    # Pattern Detection (v0.13.0+) - Industry-aligned linting
+    parser.add_argument('--check', '--lint', action='store_true',
+                        help='Run pattern detectors (code quality, security, complexity checks)')
+    parser.add_argument('--select', type=str, metavar='RULES',
+                        help='Select specific rules or categories (e.g., "B,S" or "B001,S701")')
+    parser.add_argument('--ignore', type=str, metavar='RULES',
+                        help='Ignore specific rules or categories (e.g., "E501" or "C")')
+    parser.add_argument('--rules', action='store_true',
+                        help='List all available pattern detection rules')
+    parser.add_argument('--explain', type=str, metavar='CODE',
+                        help='Explain a specific rule (e.g., "B001")')
 
     # Semantic navigation (head/tail/range)
     parser.add_argument('--head', type=int, metavar='N',
@@ -561,6 +575,88 @@ def _main_impl():
     # Handle --recommend-prompt
     if args.recommend_prompt:
         print(RECOMMENDED_PROMPT)
+        sys.exit(0)
+
+    # Handle --agent-help
+    if args.agent_help:
+        agent_help_path = Path(__file__).parent.parent / 'AGENT_HELP.md'
+        try:
+            with open(agent_help_path, 'r', encoding='utf-8') as f:
+                print(f.read())
+        except FileNotFoundError:
+            print(f"Error: AGENT_HELP.md not found at {agent_help_path}", file=sys.stderr)
+            print("This is a bug - please report it at https://github.com/scottsen/reveal/issues", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
+
+    # Handle --agent-help-full
+    if args.agent_help_full:
+        agent_help_full_path = Path(__file__).parent.parent / 'AGENT_HELP_FULL.md'
+        try:
+            with open(agent_help_full_path, 'r', encoding='utf-8') as f:
+                print(f.read())
+        except FileNotFoundError:
+            print(f"Error: AGENT_HELP_FULL.md not found at {agent_help_full_path}", file=sys.stderr)
+            print("This is a bug - please report it at https://github.com/scottsen/reveal/issues", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
+
+    # Handle --rules (list all pattern detection rules)
+    if args.rules:
+        from .rules import RuleRegistry
+        rules = RuleRegistry.list_rules()
+
+        if not rules:
+            print("No rules discovered")
+            sys.exit(0)
+
+        print(f"Reveal v{__version__} - Pattern Detection Rules\n")
+
+        # Group by category
+        by_category = {}
+        for rule in rules:
+            cat = rule['category']
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(rule)
+
+        # Print by category
+        for category in sorted(by_category.keys()):
+            cat_rules = by_category[category]
+            print(f"{category.upper()} Rules ({len(cat_rules)}):")
+            for rule in sorted(cat_rules, key=lambda r: r['code']):
+                status = "✓" if rule['enabled'] else "✗"
+                severity_icon = {"low": "ℹ️", "medium": "⚠️", "high": "❌", "critical": "🚨"}.get(rule['severity'], "")
+                print(f"  {status} {rule['code']:8s} {severity_icon} {rule['message']}")
+                if rule['file_patterns'] != ['*']:
+                    print(f"             Files: {', '.join(rule['file_patterns'])}")
+            print()
+
+        print(f"Total: {len(rules)} rules")
+        print("\nUsage: reveal <file> --check --select B,S --ignore E501")
+        sys.exit(0)
+
+    # Handle --explain (explain a specific rule)
+    if args.explain:
+        from .rules import RuleRegistry
+        rule = RuleRegistry.get_rule(args.explain)
+
+        if not rule:
+            print(f"Error: Rule '{args.explain}' not found", file=sys.stderr)
+            print("\nUse 'reveal --rules' to list all available rules", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"Rule: {rule.code}")
+        print(f"Message: {rule.message}")
+        print(f"Category: {rule.category.value if rule.category else 'unknown'}")
+        print(f"Severity: {rule.severity.value}")
+        print(f"File Patterns: {', '.join(rule.file_patterns)}")
+        if rule.uri_patterns:
+            print(f"URI Patterns: {', '.join(rule.uri_patterns)}")
+        print(f"Version: {rule.version}")
+        print(f"Enabled: {'Yes' if rule.enabled else 'No'}")
+        print(f"\nDescription:")
+        print(f"  {rule.__doc__ or 'No description available.'}")
         sys.exit(0)
 
     # Handle --stdin (read file paths from stdin)
@@ -700,6 +796,53 @@ def list_supported_types():
     print(f"Help: reveal --help")
 
 
+def run_pattern_detection(analyzer: FileAnalyzer, path: str, output_format: str, args):
+    """Run pattern detection rules on a file.
+
+    Args:
+        analyzer: File analyzer instance
+        path: File path
+        output_format: Output format ('text', 'json', 'grep')
+        args: CLI arguments (for --select, --ignore)
+    """
+    from .rules import RuleRegistry
+
+    # Parse select/ignore options
+    select = args.select.split(',') if args.select else None
+    ignore = args.ignore.split(',') if args.ignore else None
+
+    # Get structure and content
+    structure = analyzer.get_structure()
+    content = analyzer.content
+
+    # Run rules
+    detections = RuleRegistry.check_file(path, structure, content, select=select, ignore=ignore)
+
+    # Output results
+    if output_format == 'json':
+        import json
+        result = {
+            'file': path,
+            'detections': [d.to_dict() for d in detections],
+            'total': len(detections)
+        }
+        print(json.dumps(result, indent=2))
+
+    elif output_format == 'grep':
+        # Grep format: file:line:column:code:message
+        for d in detections:
+            print(f"{d.file_path}:{d.line}:{d.column}:{d.rule_code}:{d.message}")
+
+    else:  # text
+        if not detections:
+            print(f"{path}: ✅ No issues found")
+        else:
+            print(f"{path}: Found {len(detections)} issues\n")
+            for d in sorted(detections, key=lambda x: (x.line, x.column)):
+                print(d)
+                print()  # Blank line between detections
+
+
 def handle_file(path: str, element: Optional[str], show_meta: bool, output_format: str, args=None):
     """Handle file analysis.
 
@@ -730,6 +873,11 @@ def handle_file(path: str, element: Optional[str], show_meta: bool, output_forma
         show_metadata(analyzer, output_format)
         return
 
+    # Pattern detection mode (--check)?
+    if args and getattr(args, 'check', False):
+        run_pattern_detection(analyzer, path, output_format, args)
+        return
+
     # Extract specific element?
     if element:
         extract_element(analyzer, element, output_format)
@@ -753,33 +901,6 @@ def show_metadata(analyzer: FileAnalyzer, output_format: str):
         print(f"Lines:    {meta['lines']}")
         print(f"Encoding: {meta['encoding']}")
         print(f"\n→ reveal {meta['path']}")
-
-
-def is_sloppy_element(item: dict, analyzer: FileAnalyzer) -> bool:
-    """Check if element violates best practices for its file type.
-
-    Uses analyzer-specific heuristics (each file type defines what's "sloppy").
-    Examples:
-    - Python: line_count > 50, depth > 4, bare except
-    - SQL: SELECT *, no WHERE clause, missing indexes
-    - Dockerfile: root user, :latest tags, no healthcheck
-    """
-    heuristics = analyzer.sloppy_heuristics
-
-    # Check line count threshold
-    if 'line_count' in item and 'line_count' in heuristics:
-        if item['line_count'] > heuristics['line_count']:
-            return True
-
-    # Check nesting depth threshold
-    if 'depth' in item and 'depth' in heuristics:
-        if item['depth'] > heuristics['depth']:
-            return True
-
-    # Future: Add more heuristic checks here as analyzers add them
-    # - bare_except, select_star, root_user, etc.
-
-    return False
 
 
 def build_hierarchy(structure: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
@@ -1047,17 +1168,6 @@ def _build_analyzer_kwargs(analyzer: FileAnalyzer, args) -> Dict[str, Any]:
     return kwargs
 
 
-def _apply_sloppy_filter(structure: Dict[str, List[Dict[str, Any]]],
-                         analyzer: FileAnalyzer) -> Dict[str, List[Dict[str, Any]]]:
-    """Filter structure to show only elements that violate best practices."""
-    filtered = {}
-    for category, items in structure.items():
-        sloppy_items = [item for item in items if is_sloppy_element(item, analyzer)]
-        if sloppy_items:
-            filtered[category] = sloppy_items
-    return filtered
-
-
 def _print_file_header(path: Path, is_fallback: bool = False, fallback_lang: str = None) -> None:
     """Print file header with optional fallback indicator."""
     if is_fallback and fallback_lang:
@@ -1118,10 +1228,6 @@ def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
     kwargs = _build_analyzer_kwargs(analyzer, args)
     structure = analyzer.get_structure(**kwargs)
     path = analyzer.path
-
-    # Apply sloppy filter if requested
-    if args and getattr(args, 'show_sloppy', False):
-        structure = _apply_sloppy_filter(structure, analyzer)
 
     # Get fallback info
     is_fallback = getattr(analyzer, 'is_fallback', False)

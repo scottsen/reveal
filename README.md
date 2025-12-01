@@ -55,6 +55,54 @@ reveal app.py load_config      # Element → extraction
 
 **That's it.** No flags, no configuration, just works.
 
+## 🔍 Pattern Detection (v0.13.0+)
+
+Industry-aligned code quality checking with pluggable rules:
+
+```bash
+# Check code quality
+reveal app.py --check
+
+# Select specific categories (B=bugs, S=security, C=complexity, E=errors)
+reveal app.py --check --select B,S
+
+# Ignore specific rules
+reveal app.py --check --ignore E501
+
+# List all available rules
+reveal --rules
+
+# Explain a specific rule
+reveal --explain B001
+```
+
+**Built-in Rules:**
+- **B001**: Bare except clauses (Python)
+- **S701**: Docker :latest tags (Dockerfile)
+- **C901**: Function complexity (Universal)
+- **E501**: Line length (Universal)
+- **U501**: Insecure HTTP URLs (Universal)
+
+**Extensible:** Drop custom rules in `~/.reveal/rules/` - auto-discovered, zero configuration!
+
+## 🤖 AI Agent Support (v0.13.0+)
+
+Built-in comprehensive usage guide for AI agents and LLMs:
+
+```bash
+# Get strategic guidance for AI agents
+reveal --agent-help
+```
+
+**Includes:**
+- **Decision trees** - When to use reveal vs alternatives
+- **Workflow sequences** - Common task patterns (PR review, bug investigation, etc.)
+- **Token efficiency analysis** - Cost comparisons for different approaches
+- **Anti-patterns** - What NOT to do
+- **Pipeline composition** - Combining with git, find, jq, etc.
+
+**Following the `llms.txt` pattern:** Just as websites provide `llms.txt` to guide AI agents, reveal provides `--agent-help` to show CLI tools how to be used effectively by agents.
+
 ## 🎨 Clean Design
 
 ### Smart Auto-Detection

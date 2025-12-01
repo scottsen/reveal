@@ -23,13 +23,6 @@ class FileAnalyzer:
     - extract_element(type, name): Extract specific element (optional)
     """
 
-    # Sloppy code heuristics (context-aware, subclasses override for domain-specific rules)
-    # These define what "needs attention" means for each file type
-    sloppy_heuristics = {
-        'line_count': 50,   # General: elements over 50 lines
-        'depth': 4,         # General: nesting depth over 4 levels
-    }
-
     def __init__(self, path: str):
         self.path = Path(path)
         self.lines = self._read_file()

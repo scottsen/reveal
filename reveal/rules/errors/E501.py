@@ -1,0 +1,78 @@
+"""E501: Line too long detector.
+
+Detects lines that exceed the maximum line length (PEP 8 style).
+Universal rule that works on any text file.
+"""
+
+import logging
+from typing import List, Dict, Any, Optional
+
+from ..base import BaseRule, Detection, RulePrefix, Severity
+
+logger = logging.getLogger(__name__)
+
+
+class E501(BaseRule):
+    """Detect lines that exceed maximum length."""
+
+    code = "E501"
+    message = "Line too long"
+    category = RulePrefix.E
+    severity = Severity.LOW
+    file_patterns = ['*']  # Universal: works on any file
+    version = "1.0.0"
+
+    # Maximum line length (PEP 8 standard is 79, but 88 is Black default)
+    MAX_LENGTH = 88
+
+    # Patterns to ignore (URLs, etc.)
+    IGNORE_PATTERNS = [
+        'http://',
+        'https://',
+        'ftp://',
+        '# noqa',  # Flake8 ignore comment
+        '# type:',  # Type comments
+    ]
+
+    def check(self,
+             file_path: str,
+             structure: Optional[Dict[str, Any]],
+             content: str) -> List[Detection]:
+        """
+        Check for lines exceeding maximum length.
+
+        Args:
+            file_path: Path to file
+            structure: Parsed structure (not used)
+            content: File content
+
+        Returns:
+            List of detections
+        """
+        detections = []
+        lines = content.splitlines()
+
+        for i, line in enumerate(lines, start=1):
+            # Skip if line contains ignore patterns
+            if any(pattern in line for pattern in self.IGNORE_PATTERNS):
+                continue
+
+            # Check length (excluding trailing whitespace)
+            line_length = len(line.rstrip())
+
+            if line_length > self.MAX_LENGTH:
+                excess = line_length - self.MAX_LENGTH
+
+                detections.append(Detection(
+                    file_path=file_path,
+                    line=i,
+                    rule_code=self.code,
+                    message=f"{self.message} ({line_length} > {self.MAX_LENGTH} characters, {excess} over)",
+                    column=self.MAX_LENGTH + 1,
+                    suggestion=f"Break line into multiple lines or refactor",
+                    context=line[:80] + '...' if len(line) > 80 else line,
+                    severity=self.severity,
+                    category=self.category
+                ))
+
+        return detections

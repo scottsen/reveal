@@ -7,6 +7,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-11-30
+
+### 🎯 Major Feature: Pattern Detection System
+
+**NEW: Industry-aligned code quality checks with pluggable rules!**
+
+reveal now includes a built-in pattern detection system that checks code quality, security, and best practices across all supported file types.
+
+```bash
+# Run all quality checks
+reveal app.py --check
+
+# Select specific categories (B=bugs, S=security, C=complexity, E=errors)
+reveal app.py --check --select B,S
+
+# Ignore specific rules
+reveal app.py --check --ignore E501
+
+# List all available rules
+reveal --rules
+
+# Explain a specific rule
+reveal --explain B001
+```
+
+**Built-in Rules (6 rules):**
+- **B001**: Bare except clause catches all exceptions including SystemExit (Python)
+- **C901**: Function is too complex (Universal)
+- **E501**: Line too long (Universal)
+- **R913**: Too many arguments to function (Python)
+- **S701**: Docker image uses :latest tag (Dockerfile)
+- **U501**: GitHub URL uses insecure http:// protocol (Universal)
+
+**Extensible:** Drop custom rules in `~/.reveal/rules/` - auto-discovered, zero configuration!
+
+### 🤖 Major Feature: AI Agent Help System
+
+**NEW: Comprehensive built-in guidance for AI agents and LLMs!**
+
+Following the `llms.txt` pattern, reveal now provides structured usage guides directly from the CLI.
+
+```bash
+# Get brief agent usage guide (llms.txt-style)
+reveal --agent-help
+
+# Get comprehensive agent guide with examples
+reveal --agent-help-full
+
+# Get strategic best practices (from v0.12.0)
+reveal --recommend-prompt
+```
+
+**Includes:**
+- Decision trees for when to use reveal vs alternatives
+- Workflow sequences for common tasks (PR review, bug investigation)
+- Token efficiency analysis and cost comparisons
+- Anti-patterns and what NOT to do
+- Pipeline composition with git, find, jq, etc.
+
+### Added
+- **Pattern detection system** (`--check` flag)
+  - Pluggable rule architecture in `reveal/rules/`
+  - Rule categories: bugs, security, complexity, errors, refactoring, urls
+  - `RuleRegistry` for automatic rule discovery
+  - Support for file pattern and URI pattern matching
+  - Multiple output formats: text (default), json, grep
+  - `--select` and `--ignore` for fine-grained control
+
+- **AI agent help flags**
+  - `--agent-help`: Brief llms.txt-style usage guide
+  - `--agent-help-full`: Comprehensive guide with examples
+  - Embedded in CLI, no external dependencies
+
+- **Rule management commands**
+  - `--rules`: List all available pattern detection rules
+  - `--explain <CODE>`: Get detailed explanation of specific rule
+
+- **Documentation**
+  - `AGENT_HELP.md`: Brief agent usage guide
+  - `AGENT_HELP_FULL.md`: Comprehensive agent guide
+  - `docs/AGENT_HELP_STANDARD.md`: Standard for agent help in CLI tools
+  - `docs/SLOPPY_DETECTORS_DESIGN.md`: Pattern detector design documentation
+
+### Changed
+- **README updated** - New sections for pattern detection and AI agent support
+- **Help text** - Updated examples to reference `--check` instead of deprecated `--show-sloppy`
+- **Test suite** - Removed 3 obsolete test files from old refactoring
+  - Kept 23 passing tests for semantic navigation
+  - All core functionality tested and working
+
+### Breaking Changes
+- ⚠️ `--show-sloppy` flag renamed to `--check` (from v0.12.0)
+  - Rationale: "check" is more industry-standard and clearer than "sloppy"
+  - Pattern detection system replaces the previous sloppy code detection
+  - Use `--check` instead of `--show-sloppy` or `--sloppy`
+
+### Notes
+- This release skips v0.12.0 to consolidate features
+- v0.12.0 introduced semantic navigation and `--show-sloppy`
+- v0.13.0 renames `--show-sloppy` to `--check` and adds full pattern detection
+- See v0.12.0 notes in git history for semantic navigation features
+
 ## [0.11.1] - 2025-11-27
 
 ### Fixed
