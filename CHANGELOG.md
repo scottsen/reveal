@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2] - 2025-12-01
+
+### 🐛 Critical Bug Fix: AGENT_HELP Packaging
+
+**Fixed:** v0.13.1 failed to include AGENT_HELP.md files in PyPI packages, causing `--agent-help` flag to fail with "file not found" errors.
+
+**Root cause:** AGENT_HELP.md files were at repository root but not properly included in the Python package structure.
+
+**Solution:**
+- Moved AGENT_HELP.md and AGENT_HELP_FULL.md into `reveal/` package directory
+- Updated package-data configuration in pyproject.toml to include `*.md` files
+- Updated MANIFEST.in with correct paths
+- Updated main.py path resolution from `parent.parent` to `parent`
+
+**Verification:** Tested successfully in clean Podman container with fresh pip install.
+
+**Impact:** `--agent-help` and `--agent-help-full` flags now work correctly in all installations.
+
 ## [0.13.1] - 2025-12-01
 
 ### ✨ Enhancement: Agent-Friendly Navigation Breadcrumbs

@@ -686,7 +686,7 @@ def _main_impl():
 
     # Handle --agent-help
     if args.agent_help:
-        agent_help_path = Path(__file__).parent.parent / 'AGENT_HELP.md'
+        agent_help_path = Path(__file__).parent / 'AGENT_HELP.md'
         try:
             with open(agent_help_path, 'r', encoding='utf-8') as f:
                 print(f.read())
@@ -698,7 +698,7 @@ def _main_impl():
 
     # Handle --agent-help-full
     if args.agent_help_full:
-        agent_help_full_path = Path(__file__).parent.parent / 'AGENT_HELP_FULL.md'
+        agent_help_full_path = Path(__file__).parent / 'AGENT_HELP_FULL.md'
         try:
             with open(agent_help_full_path, 'r', encoding='utf-8') as f:
                 print(f.read())
