@@ -167,7 +167,65 @@ python3 -m build
 twine upload dist/reveal_cli-0.10.0*
 ```
 
-### Scenario 4: Need to Undo a Release
+### Scenario 4: Workflow File Issues (Tag Points to Wrong Commit) ⚠️
+
+**CRITICAL:** GitHub Actions workflows run from the **TAGGED commit**, not from HEAD!
+
+**Situation:** Release created, but workflow fails immediately with "workflow file issue" or similar error.
+
+**Common error:**
+```
+Invalid workflow file: error parsing called workflow
+workflow is not reusable as it is missing a `on.workflow_call` trigger
+```
+
+**Root cause:** The git tag points to an old commit with broken/incomplete workflow files.
+
+**How to diagnose:**
+```bash
+# 1. Check which commit the tag points to
+git ls-remote --tags origin | grep v0.10.0
+
+# 2. Verify the workflow file at that tagged commit
+git show v0.10.0:.github/workflows/publish-to-pypi.yml
+
+# 3. Compare with current HEAD
+diff <(git show v0.10.0:.github/workflows/publish-to-pypi.yml) \
+     <(cat .github/workflows/publish-to-pypi.yml)
+```
+
+**Solution:**
+```bash
+# 1. Delete the broken release
+gh release delete v0.10.0 --yes
+
+# 2. Delete the tag (local and remote)
+git tag -d v0.10.0
+git push --delete origin v0.10.0
+
+# 3. Ensure you're on the commit with FIXED workflows
+git log --oneline -5  # Verify you're on correct commit
+
+# 4. Create tag pointing to current HEAD (with fixed workflows)
+git tag v0.10.0
+git push origin v0.10.0
+
+# 5. VERIFY the tag points to correct commit
+git show v0.10.0:.github/workflows/publish-to-pypi.yml | head -20
+
+# 6. Create release again
+gh release create v0.10.0 \
+  --title "v0.10.0" \
+  --notes "See CHANGELOG.md for details"
+```
+
+**Prevention:**
+- Always verify tag points to correct commit BEFORE creating release
+- Test workflow changes on a branch before merging to master
+- Use `workflow_dispatch` to test workflows without creating releases
+- Never modify `.github/workflows/` files as part of a release commit
+
+### Scenario 5: Need to Undo a Release
 
 **If release was pushed but you need to undo:**
 
@@ -269,6 +327,10 @@ Before running `./scripts/release.sh X.Y.Z`:
 - [ ] Clean git status (`git status` shows nothing)
 - [ ] On master branch
 - [ ] Pulled latest from origin
+
+After creating tag (BEFORE creating release):
+- [ ] **VERIFY tag points to correct commit:** `git show vX.Y.Z:.github/workflows/publish-to-pypi.yml | head -20`
+- [ ] **Verify tag SHA matches HEAD:** `git rev-parse vX.Y.Z` == `git rev-parse HEAD`
 
 After release:
 - [ ] GitHub Actions completed successfully
