@@ -1,7 +1,7 @@
 """Jupyter Notebook (.ipynb) analyzer."""
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from ..base import FileAnalyzer, register
 
 
@@ -124,7 +124,7 @@ class JupyterAnalyzer(FileAnalyzer):
 
         return 1  # Fallback
 
-    def generate_preview(self) -> List[tuple[int, str]]:
+    def generate_preview(self) -> List[Tuple[int, str]]:
         """Generate Jupyter notebook preview."""
         preview = []
 
