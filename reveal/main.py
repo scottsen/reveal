@@ -613,6 +613,10 @@ def _main_impl():
     parser.add_argument('--no-fallback', action='store_true',
                         help='Disable TreeSitter fallback for unknown file types')
     parser.add_argument('--depth', type=int, default=3, help='Directory tree depth (default: 3)')
+    parser.add_argument('--max-entries', type=int, default=200,
+                        help='Maximum entries to show in directory tree (default: 200, 0=unlimited)')
+    parser.add_argument('--fast', action='store_true',
+                        help='Fast mode: skip line counting for better performance')
     parser.add_argument('--outline', action='store_true',
                         help='Show hierarchical outline (classes with methods, nested structures)')
 
@@ -820,7 +824,8 @@ def _main_impl():
     # Route based on path type
     if path.is_dir():
         # Directory → show tree
-        output = show_directory_tree(str(path), depth=args.depth)
+        output = show_directory_tree(str(path), depth=args.depth,
+                                     max_entries=args.max_entries, fast=args.fast)
         print(output)
 
     elif path.is_file():
