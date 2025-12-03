@@ -152,6 +152,8 @@ reveal app.py --meta             # metadata only
 | `--check` | Code quality analysis |
 | `--stdin` | Read file paths from stdin |
 | `--depth N` | Directory tree depth |
+| `--max-entries N` | Limit directory entries (default: 200, 0=unlimited) |
+| `--fast` | Fast mode: skip line counting (~6x faster) |
 | `--agent-help` | AI agent usage guide |
 | `--list-supported` | Show all file types |
 
