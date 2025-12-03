@@ -46,6 +46,43 @@ reveal /large/project --max-entries 0
 
 Fixes #10
 
+### 🐛 Bug Fix: Missing file field in JSON structure elements (#11)
+
+**Fixed:** `--stdin` with `--format=json` now includes file path in all structure elements.
+
+**Problem:** When processing multiple files through stdin, nested structure elements (functions, classes, etc.) lacked a `file` field, making it impossible to identify which source file each element belonged to.
+
+**Before (broken):**
+```bash
+ls *.py | reveal --stdin --format=json | jq '.structure.functions[]'
+{
+  "line": 1,
+  "name": "foo",
+  # ❌ No file field - can't tell which file this is from!
+}
+```
+
+**After (fixed):**
+```bash
+ls *.py | reveal --stdin --format=json | jq '.structure.functions[]'
+{
+  "line": 1,
+  "name": "foo",
+  "file": "/path/to/app.py"  # ✅ File field present!
+}
+```
+
+**Example use case:**
+```bash
+# Find all long functions across multiple files
+find src/ -name "*.py" | reveal --stdin --format=json | \
+  jq -r '.structure.functions[] | select(.line_count > 50) | "\(.file):\(.line) \(.name)"'
+```
+
+**Impact:** Enables proper pipeline workflows with multiple files. All structure elements (functions, classes, imports, etc.) now include the file path for reliable file attribution.
+
+Fixes #11
+
 ## [0.13.3] - 2025-12-01
 
 ### 🪟 Windows Compatibility Improvements

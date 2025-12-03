@@ -1299,9 +1299,21 @@ def _render_json_output(analyzer: FileAnalyzer, structure: Dict[str, List[Dict[s
 
     is_fallback = getattr(analyzer, 'is_fallback', False)
     fallback_lang = getattr(analyzer, 'fallback_language', None)
+    file_path = str(analyzer.path)
+
+    # Add 'file' field to each element in structure for --stdin compatibility
+    enriched_structure = {}
+    for category, items in structure.items():
+        enriched_items = []
+        for item in items:
+            # Copy item and add file field
+            enriched_item = item.copy()
+            enriched_item['file'] = file_path
+            enriched_items.append(enriched_item)
+        enriched_structure[category] = enriched_items
 
     result = {
-        'file': str(analyzer.path),
+        'file': file_path,
         'type': analyzer.__class__.__name__.replace('Analyzer', '').lower(),
         'analyzer': {
             'type': 'fallback' if is_fallback else 'explicit',
@@ -1309,7 +1321,7 @@ def _render_json_output(analyzer: FileAnalyzer, structure: Dict[str, List[Dict[s
             'explicit': not is_fallback,
             'name': analyzer.__class__.__name__
         },
-        'structure': structure
+        'structure': enriched_structure
     }
     print(json.dumps(result, indent=2))
 
