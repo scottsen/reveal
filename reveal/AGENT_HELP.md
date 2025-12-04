@@ -180,6 +180,49 @@ reveal app.py --format=json | jq -r '.structure.functions[] | "\(.name)(\(.line)
 reveal app.py --format=json | jq '.structure.imports[]'
 ```
 
+### Typed Format
+
+**New in v0.16.0:** Analyzers can define types and relationships for richer semantic analysis.
+
+```bash
+# Standard JSON (backward compatible)
+reveal file.py --format=json
+# Output: { "structure": { "functions": [...], "classes": [...] } }
+
+# Typed JSON (with types and relationships)
+reveal file.py --format=typed
+# Output: { "entities": [...], "relationships": {...}, "type_counts": {...} }
+```
+
+**Typed format includes:**
+- **Entities:** Each element has explicit `type` field (function, method, class, etc.)
+- **Relationships:** Call graphs, inheritance, dependencies (bidirectional)
+- **Type counts:** Summary statistics
+- **Metadata:** Total entities and relationships
+
+**Example output:**
+```json
+{
+  "entities": [
+    {"type": "function", "name": "process", "line": 10, "signature": "..."},
+    {"type": "method", "name": "handle", "line": 50, "parent_class": "Handler"}
+  ],
+  "relationships": {
+    "calls": [{"from": {"type": "method", "name": "handle"}, "to": {"type": "function", "name": "process"}}],
+    "called_by": [{"from": {"type": "function", "name": "process"}, "to": {"type": "method", "name": "handle"}}]
+  },
+  "type_counts": {"function": 10, "method": 5, "class": 3}
+}
+```
+
+**When to use typed format:**
+- Analyzing code relationships (call graphs, dependencies)
+- Type-aware queries and filtering
+- Building code intelligence tools
+- Relationship-based analysis (impact analysis, refactoring)
+
+**Fallback:** If analyzer doesn't define types, automatically falls back to standard JSON format.
+
 ---
 
 ## Integration Patterns
@@ -273,7 +316,8 @@ grep -A 20 "def function" file.py # Brittle, error-prone
 | `--range M-N` | Specific range | Minimal (20-100) |
 | `--check` | Quality checks | Low (100-300) |
 | `--select RULES` | Filter rules (B,S,C,E,R,U) | Variable |
-| `--format=json` | JSON output | Same (for scripting) |
+| `--format=json` | JSON output (standard) | Same (for scripting) |
+| `--format=typed` | JSON with types/relationships | Same (typed format) |
 | `--stdin` | Pipeline mode | Scales with input |
 | `element_name` | Extract element | Low (20-100) |
 

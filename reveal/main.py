@@ -676,8 +676,8 @@ def _main_impl():
     parser.add_argument('--stdin', action='store_true',
                         help='Read file paths from stdin (one per line) - enables Unix pipeline workflows')
     parser.add_argument('--meta', action='store_true', help='Show metadata only')
-    parser.add_argument('--format', choices=['text', 'json', 'grep'], default='text',
-                        help='Output format (text, json, grep)')
+    parser.add_argument('--format', choices=['text', 'json', 'typed', 'grep'], default='text',
+                        help='Output format (text, json, typed [typed JSON with types/relationships], grep)')
     parser.add_argument('--no-fallback', action='store_true',
                         help='Disable TreeSitter fallback for unknown file types')
     parser.add_argument('--depth', type=int, default=3, help='Directory tree depth (default: 3)')
@@ -1357,7 +1357,7 @@ def _print_file_header(path: Path, is_fallback: bool = False, fallback_lang: str
 
 
 def _render_json_output(analyzer: FileAnalyzer, structure: Dict[str, List[Dict[str, Any]]]) -> None:
-    """Render structure as JSON output."""
+    """Render structure as JSON output (standard format)."""
     import json
 
     is_fallback = getattr(analyzer, 'is_fallback', False)
@@ -1386,6 +1386,106 @@ def _render_json_output(analyzer: FileAnalyzer, structure: Dict[str, List[Dict[s
         },
         'structure': enriched_structure
     }
+    print(json.dumps(result, indent=2))
+
+
+def _render_typed_json_output(analyzer: FileAnalyzer, structure: Dict[str, List[Dict[str, Any]]]) -> None:
+    """Render structure as typed JSON output (with types and relationships).
+
+    This format includes:
+    - Entities with explicit type fields
+    - Relationships (including bidirectional)
+    - Type counts
+    - Rich properties
+
+    Only available for analyzers that define types.
+    Falls back to standard JSON if no types defined.
+    """
+    import json
+
+    # Check if analyzer has type system
+    if not hasattr(analyzer, '_type_registry') or analyzer._type_registry is None:
+        # No type system - fall back to standard JSON
+        _render_json_output(analyzer, structure)
+        return
+
+    is_fallback = getattr(analyzer, 'is_fallback', False)
+    fallback_lang = getattr(analyzer, 'fallback_language', None)
+    file_path = str(analyzer.path)
+
+    # Build entities list with explicit types
+    entities = []
+    type_counts = {}
+
+    # Map structure keys to type names (handle plural to singular)
+    def normalize_type_name(structure_key: str) -> str:
+        """Convert structure key to type name.
+
+        Structure keys are often plural (functions, classes),
+        but type definitions are singular (function, class).
+        """
+        # Check if singular form exists in type registry
+        singular = structure_key.rstrip('s')  # Simple pluralization
+        if analyzer._type_registry and singular in analyzer._type_registry.types:
+            return singular
+
+        # Check for exact match
+        if analyzer._type_registry and structure_key in analyzer._type_registry.types:
+            return structure_key
+
+        # Fall back to structure key
+        return structure_key
+
+    for structure_key, items in structure.items():
+        # Get normalized type name
+        entity_type = normalize_type_name(structure_key)
+
+        for item in items:
+            # Create entity with explicit type field
+            entity = {
+                'type': entity_type,
+                **item,  # Include all original properties
+                'file': file_path  # Add file field for --stdin compatibility
+            }
+            entities.append(entity)
+
+            # Count types
+            type_counts[entity_type] = type_counts.get(entity_type, 0) + 1
+
+    # Extract relationships if analyzer supports them
+    relationships = {}
+    if hasattr(analyzer, '_relationship_registry') and analyzer._relationship_registry is not None:
+        # Call analyzer's relationship extraction
+        raw_relationships = analyzer._extract_relationships(structure)
+
+        # Build relationship index (adds bidirectional edges)
+        if raw_relationships:
+            relationships = analyzer._relationship_registry.build_index(raw_relationships)
+
+    # Build result
+    result = {
+        'file': file_path,
+        'analyzer': analyzer.__class__.__name__.replace('Analyzer', '').lower(),
+        'analyzer_info': {
+            'type': 'fallback' if is_fallback else 'explicit',
+            'language': fallback_lang if is_fallback else None,
+            'explicit': not is_fallback,
+            'name': analyzer.__class__.__name__,
+            'has_types': True,
+            'has_relationships': len(relationships) > 0
+        },
+        'entities': entities,
+        'type_counts': type_counts,
+        'metadata': {
+            'total_entities': len(entities),
+            'total_relationships': sum(len(edges) for edges in relationships.values())
+        }
+    }
+
+    # Add relationships if present
+    if relationships:
+        result['relationships'] = relationships
+
     print(json.dumps(result, indent=2))
 
 
@@ -1435,9 +1535,14 @@ def show_structure(analyzer: FileAnalyzer, output_format: str, args=None):
         render_outline(hierarchy, path)
         return
 
-    # Handle JSON output
+    # Handle JSON output (standard format)
     if output_format == 'json':
         _render_json_output(analyzer, structure)
+        return
+
+    # Handle typed JSON output (with types and relationships)
+    if output_format == 'typed':
+        _render_typed_json_output(analyzer, structure)
         return
 
     # Handle empty structure
